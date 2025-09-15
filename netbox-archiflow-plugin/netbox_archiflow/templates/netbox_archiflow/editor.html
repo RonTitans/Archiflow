@@ -1,0 +1,65 @@
+{% extends 'netbox_archiflow/plugin_base.html' %}
+
+{% block title %}Diagram Editor - ArchiFlow{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active">Editor</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>ArchiFlow Network Diagram Editor</h3>
+            </div>
+            <div class="card-body p-0">
+                <div style="height: 80vh;">
+                    <iframe 
+                        id="archiflow-frame" 
+                        src="http://localhost:8081/archiflow-loader.html"
+                        style="width: 100%; height: 100%; border: none;">
+                    </iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize ArchiFlow integration
+window.addEventListener('load', function() {
+    const iframe = document.getElementById('archiflow-frame');
+    
+    // Handle messages from Draw.io
+    window.addEventListener('message', function(event) {
+        // Verify origin
+        if (event.origin !== 'http://localhost:8081') {
+            return;
+        }
+        
+        const message = event.data;
+        
+        // Handle different message types
+        if (message.event === 'init') {
+            console.log('Draw.io initialized');
+            // Send NetBox context to Draw.io
+            iframe.contentWindow.postMessage({
+                action: 'netbox-context',
+                context: {
+                    user: '{{ user.username }}',
+                    userId: '{{ user.id }}',
+                    email: '{{ user.email }}',
+                    isSuperuser: {{ user.is_superuser|yesno:"true,false" }}
+                }
+            }, 'http://localhost:8081');
+        } else if (message.event === 'save') {
+            console.log('Diagram saved');
+            // Could trigger NetBox-specific save actions here
+        } else if (message.event === 'export') {
+            console.log('Diagram exported');
+        }
+    });
+});
+</script>
+{% endblock %}

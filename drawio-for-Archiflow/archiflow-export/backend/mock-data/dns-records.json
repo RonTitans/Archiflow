@@ -1,0 +1,66 @@
+{
+  "records": [
+    {
+      "id": "DNS-001",
+      "hostname": "core-router-01.archiflow.local",
+      "type": "A",
+      "value": "10.0.1.20",
+      "ttl": 3600,
+      "assetId": "AST-001"
+    },
+    {
+      "id": "DNS-002",
+      "hostname": "core-switch-01.archiflow.local",
+      "type": "A",
+      "value": "10.0.1.21",
+      "ttl": 3600,
+      "assetId": "AST-002"
+    },
+    {
+      "id": "DNS-003",
+      "hostname": "web-server-01.archiflow.local",
+      "type": "A",
+      "value": "10.0.20.10",
+      "ttl": 3600,
+      "assetId": "AST-004"
+    },
+    {
+      "id": "DNS-004",
+      "hostname": "www.archiflow.local",
+      "type": "CNAME",
+      "value": "web-server-01.archiflow.local",
+      "ttl": 3600
+    },
+    {
+      "id": "DNS-005",
+      "hostname": "branch-nyc-router.archiflow.local",
+      "type": "A",
+      "value": "192.168.1.10",
+      "ttl": 3600,
+      "assetId": "AST-005"
+    },
+    {
+      "id": "DNS-006",
+      "hostname": "1.0.0.10.in-addr.arpa",
+      "type": "PTR",
+      "value": "gateway.archiflow.local",
+      "ttl": 3600
+    }
+  ],
+  "zones": [
+    {
+      "id": "ZONE-001",
+      "name": "archiflow.local",
+      "type": "forward",
+      "primary": "10.0.1.10",
+      "secondary": "10.0.1.11"
+    },
+    {
+      "id": "ZONE-002",
+      "name": "10.in-addr.arpa",
+      "type": "reverse",
+      "primary": "10.0.1.10",
+      "secondary": "10.0.1.11"
+    }
+  ]
+}

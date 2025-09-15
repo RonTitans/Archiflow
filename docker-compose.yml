@@ -1,0 +1,346 @@
+services:
+  # PostgreSQL Database for NetBox
+  netbox-postgres:
+    image: postgres:15-alpine
+    container_name: netbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netbox_db_password_2024}
+    volumes:
+      - netbox-postgres-data:/var/lib/postgresql/data
+    networks:
+      - netbox-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netbox"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis for caching and task queuing
+  netbox-redis:
+    image: redis:7-alpine
+    container_name: netbox-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - netbox-redis-data:/data
+    networks:
+      - netbox-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Redis for NetBox task queue
+  netbox-redis-cache:
+    image: redis:7-alpine
+    container_name: netbox-redis-cache
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - netbox-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # NetBox Application
+  netbox:
+    image: netboxcommunity/netbox:v4.0-2.9.1
+    container_name: netbox
+    restart: unless-stopped
+    command: sh -c "/opt/netbox/install-plugin.sh && /opt/netbox/docker-entrypoint.sh /opt/netbox/launch-netbox.sh"
+    depends_on:
+      netbox-postgres:
+        condition: service_healthy
+      netbox-redis:
+        condition: service_healthy
+      netbox-redis-cache:
+        condition: service_healthy
+    ports:
+      - "8000:8080"
+    environment:
+      # Database settings
+      DB_HOST: netbox-postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-netbox_db_password_2024}
+      
+      # Redis settings
+      REDIS_HOST: netbox-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DATABASE: 0
+      REDIS_SSL: "false"
+      
+      # Redis cache settings
+      REDIS_CACHE_HOST: netbox-redis-cache
+      REDIS_CACHE_PORT: 6379
+      REDIS_CACHE_PASSWORD: ""
+      REDIS_CACHE_DATABASE: 0
+      REDIS_CACHE_SSL: "false"
+      
+      # NetBox settings
+      SECRET_KEY: ${SECRET_KEY:-rtomwcX2e8E8Iq8qSR0TihB7ju7N6I0J2lG7A0WCLUiyf2aKodX9ui6WTEkA5aBOKSI}
+      ALLOWED_HOSTS: "*"
+      SUPERUSER_NAME: ${SUPERUSER_NAME:-admin}
+      SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-admin@example.com}
+      SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-admin}
+      SKIP_SUPERUSER: ${SKIP_SUPERUSER:-false}
+      
+      # Development/Production settings
+      DEBUG: ${DEBUG:-false}
+      BANNER_TOP: "NetBox - ArchiFlow Integration"
+      BANNER_BOTTOM: ""
+      BASE_PATH: ""
+      METRICS_ENABLED: "true"
+      
+      # Worker settings
+      RQ_DEFAULT_TIMEOUT: 300
+      
+      # Logging
+      LOGGING_LEVEL: ${LOGGING_LEVEL:-INFO}
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+      - ./netbox-archiflow-plugin:/opt/netbox/netbox-archiflow-plugin:ro
+      - ./netbox-config/plugins.py:/etc/netbox/config/plugins.py:ro
+      - ./netbox-config/install-plugin.sh:/opt/netbox/install-plugin.sh:ro
+    networks:
+      - netbox-backend
+      - netbox-frontend
+      - archiflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # NetBox Worker for background tasks
+  netbox-worker:
+    image: netboxcommunity/netbox:v4.0-2.9.1
+    container_name: netbox-worker
+    restart: unless-stopped
+    depends_on:
+      netbox:
+        condition: service_healthy
+    command: /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+    environment:
+      # Database settings
+      DB_HOST: netbox-postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-netbox_db_password_2024}
+      
+      # Redis settings
+      REDIS_HOST: netbox-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DATABASE: 0
+      REDIS_SSL: "false"
+      
+      # Redis cache settings
+      REDIS_CACHE_HOST: netbox-redis-cache
+      REDIS_CACHE_PORT: 6379
+      REDIS_CACHE_PASSWORD: ""
+      REDIS_CACHE_DATABASE: 0
+      REDIS_CACHE_SSL: "false"
+      
+      # NetBox settings
+      SECRET_KEY: ${SECRET_KEY:-rtomwcX2e8E8Iq8qSR0TihB7ju7N6I0J2lG7A0WCLUiyf2aKodX9ui6WTEkA5aBOKSI}
+      
+      # Worker settings
+      RQ_DEFAULT_TIMEOUT: 300
+      
+      # Logging
+      LOGGING_LEVEL: ${LOGGING_LEVEL:-INFO}
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+      - ./netbox-archiflow-plugin:/opt/netbox/netbox-archiflow-plugin:ro
+    networks:
+      - netbox-backend
+
+  # NetBox Housekeeping (periodic maintenance tasks)
+  netbox-housekeeping:
+    image: netboxcommunity/netbox:v4.0-2.9.1
+    container_name: netbox-housekeeping
+    restart: unless-stopped
+    depends_on:
+      netbox:
+        condition: service_healthy
+    command: /opt/netbox/housekeeping.sh
+    environment:
+      # Database settings
+      DB_HOST: netbox-postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-netbox_db_password_2024}
+      
+      # Redis settings
+      REDIS_HOST: netbox-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DATABASE: 0
+      REDIS_SSL: "false"
+      
+      # Redis cache settings
+      REDIS_CACHE_HOST: netbox-redis-cache
+      REDIS_CACHE_PORT: 6379
+      REDIS_CACHE_PASSWORD: ""
+      REDIS_CACHE_DATABASE: 0
+      REDIS_CACHE_SSL: "false"
+      
+      # NetBox settings
+      SECRET_KEY: ${SECRET_KEY:-rtomwcX2e8E8Iq8qSR0TihB7ju7N6I0J2lG7A0WCLUiyf2aKodX9ui6WTEkA5aBOKSI}
+      
+      # Logging
+      LOGGING_LEVEL: ${LOGGING_LEVEL:-INFO}
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+      - ./netbox-archiflow-plugin:/opt/netbox/netbox-archiflow-plugin:ro
+    networks:
+      - netbox-backend
+
+  # ArchiFlow PostgreSQL Database
+  archiflow-postgres:
+    image: postgres:15-alpine
+    container_name: archiflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: archiflow
+      POSTGRES_USER: archiflow_user
+      POSTGRES_PASSWORD: archiflow_pass
+    volumes:
+      - archiflow-postgres-data:/var/lib/postgresql/data
+      - ./drawio-for-Archiflow/archiflow-export/backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - archiflow-network
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archiflow_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ArchiFlow Backend (WebSocket Server)
+  archiflow-backend:
+    image: node:18-alpine
+    container_name: archiflow-backend
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && node backend/websocket-server.js"
+    ports:
+      - "3333:3333"
+    networks:
+      - archiflow-network
+      - netbox-frontend
+    environment:
+      - DB_HOST=archiflow-postgres
+      - DB_PORT=5432
+      - DB_NAME=archiflow
+      - DB_USER=archiflow_user
+      - DB_PASSWORD=archiflow_pass
+      - NETBOX_URL=http://netbox:8080
+    depends_on:
+      archiflow-postgres:
+        condition: service_healthy
+    volumes:
+      - ./drawio-for-Archiflow/archiflow-export:/app
+
+  # ArchiFlow pgAdmin for database management
+  archiflow-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: archiflow-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@archiflow.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - archiflow-pgadmin-data:/var/lib/pgadmin
+    networks:
+      - archiflow-network
+    depends_on:
+      - archiflow-postgres
+
+  # ArchiFlow Draw.io Frontend
+  archiflow-drawio:
+    image: node:18-alpine
+    container_name: archiflow-drawio
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && node backend/drawio-server.js"
+    ports:
+      - "8081:8081"
+    networks:
+      - archiflow-network
+      - netbox-frontend
+    volumes:
+      - ./drawio-for-Archiflow/archiflow-export:/app
+      - ./drawio-for-Archiflow/src/main/webapp:/app/webapp
+    environment:
+      - PORT=8081
+      - DB_HOST=archiflow-postgres
+      - DB_PORT=5432
+      - DB_NAME=archiflow
+      - DB_USER=archiflow_user
+      - DB_PASSWORD=archiflow_pass
+      - WEBSOCKET_URL=ws://archiflow-backend:3333
+      - NETBOX_URL=http://netbox:8080
+    depends_on:
+      - archiflow-backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  # Internal backend network for database and cache
+  netbox-backend:
+    driver: bridge
+    internal: true
+  
+  # Frontend network for external access
+  netbox-frontend:
+    driver: bridge
+  
+  # Shared network for ArchiFlow integration
+  archiflow-network:
+    driver: bridge
+    name: archiflow-network
+
+volumes:
+  netbox-postgres-data:
+    driver: local
+  netbox-redis-data:
+    driver: local
+  netbox-media:
+    driver: local
+  netbox-reports:
+    driver: local
+  netbox-scripts:
+    driver: local
+  archiflow-postgres-data:
+    driver: local
+  archiflow-pgadmin-data:
+    driver: local

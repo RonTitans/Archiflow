@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker volumes (but keep docker-compose files)
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Database dumps
+*.sql.gz
+*.dump
+
+# Temporary files in tmp folder (but keep the folder structure)
+tmp/*
+!tmp/.gitkeep
+
+# NetBox specific
+netbox-main/media/
+netbox-main/static/
+
+# Keep .claude folder - it's important for the project
+# !.claude/

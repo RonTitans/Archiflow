@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ArchiFlow - Draw.io Network Manager</title>
+    <meta charset="utf-8">
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
+        #loader { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10000;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        iframe { width: 100vw; height: 100vh; border: none; display: none; }
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <div class="spinner"></div>
+        <h3>Loading ArchiFlow Plugin...</h3>
+        <p>Initializing Draw.io with network management tools</p>
+    </div>
+    
+    <iframe id="drawio" src="about:blank"></iframe>
+    
+    <script>
+        console.log('[ArchiFlow Loader] Starting...');
+        
+        // First, load Draw.io WITHOUT any plugin parameters to avoid double loading
+        const iframe = document.getElementById('drawio');
+        // Use relative path if loaded from same origin, otherwise use full URL
+        const currentHost = window.location.hostname;
+        const drawioUrl = (currentHost === 'localhost' || currentHost === '127.0.0.1') 
+            ? '/index.html' 
+            : 'http://localhost:8081/index.html';
+        iframe.src = drawioUrl;
+        
+        let attempts = 0;
+        const maxAttempts = 30; // 15 seconds max
+        
+        function injectPlugin() {
+            attempts++;
+            
+            try {
+                const iframeWindow = iframe.contentWindow;
+                
+                // Try to access the iframe - this will fail for cross-origin
+                let canAccess = false;
+                try {
+                    // This will throw if cross-origin
+                    const test = iframeWindow.document;
+                    canAccess = true;
+                } catch (e) {
+                    console.log('[ArchiFlow Loader] Cross-origin detected, using postMessage method');
+                }
+                
+                if (!canAccess) {
+                    // For cross-origin, just show the iframe and use postMessage
+                    console.log('[ArchiFlow Loader] Loading Draw.io in cross-origin mode');
+                    document.getElementById('loader').style.display = 'none';
+                    iframe.style.display = 'block';
+                    
+                    // Try to load plugin via URL parameter instead
+                    iframe.src = 'http://localhost:8081/?plugins=1&plugin=http://localhost:8081/plugins/archiflow-complete.js';
+                    return;
+                }
+                
+                const iframeDoc = iframeWindow.document;
+                
+                // Check if Draw.io is loaded
+                if (iframeWindow.Draw && iframeWindow.Draw.loadPlugin) {
+                    // Check if plugin is already loaded
+                    if (iframeWindow.ArchiFlow) {
+                        console.log('[ArchiFlow Loader] Plugin already loaded, skipping injection');
+                        document.getElementById('loader').style.display = 'none';
+                        iframe.style.display = 'block';
+                        return;
+                    }
+                    
+                    console.log('[ArchiFlow Loader] Draw.io detected, injecting plugin...');
+                    
+                    // Enable custom plugins
+                    iframeWindow.ALLOW_CUSTOM_PLUGINS = true;
+                    
+                    // Method 1: Direct script injection
+                    const script = iframeDoc.createElement('script');
+                    script.src = '/plugins/archiflow-complete.js';
+                    script.onload = function() {
+                        console.log('[ArchiFlow Loader] Plugin script loaded');
+                        
+                        // Hide loader and show Draw.io
+                        document.getElementById('loader').style.display = 'none';
+                        iframe.style.display = 'block';
+                        
+                        // Check if ArchiFlow is available
+                        setTimeout(() => {
+                            if (iframeWindow.ArchiFlow) {
+                                console.log('[ArchiFlow Loader] ✅ Plugin initialized successfully!');
+                                console.log('[ArchiFlow Loader] Version:', iframeWindow.ArchiFlow.version);
+                            } else {
+                                console.log('[ArchiFlow Loader] ⚠️ Plugin loaded but ArchiFlow not found');
+                            }
+                        }, 1000);
+                    };
+                    script.onerror = function() {
+                        console.error('[ArchiFlow Loader] Failed to load plugin script');
+                        
+                        // Try method 2: Fetch and eval
+                        console.log('[ArchiFlow Loader] Trying alternate method...');
+                        fetch('/plugins/archiflow-complete.js')
+                            .then(response => response.text())
+                            .then(code => {
+                                iframeWindow.eval(code);
+                                console.log('[ArchiFlow Loader] Plugin injected via eval');
+                                
+                                // Hide loader and show Draw.io
+                                document.getElementById('loader').style.display = 'none';
+                                iframe.style.display = 'block';
+                            })
+                            .catch(err => {
+                                console.error('[ArchiFlow Loader] Alternate method failed:', err);
+                                document.getElementById('loader').innerHTML = 
+                                    '<h3 style="color: red;">Failed to load plugin</h3>' +
+                                    '<p>Please check the console for errors</p>';
+                            });
+                    };
+                    iframeDoc.head.appendChild(script);
+                    
+                } else if (attempts < maxAttempts) {
+                    // Keep trying
+                    setTimeout(injectPlugin, 500);
+                } else {
+                    console.error('[ArchiFlow Loader] Timeout: Draw.io not detected after 15 seconds');
+                    document.getElementById('loader').innerHTML = 
+                        '<h3 style="color: orange;">Draw.io is taking longer than expected</h3>' +
+                        '<p>The editor will load, but the plugin may not be available</p>';
+                    
+                    // Show Draw.io anyway
+                    setTimeout(() => {
+                        document.getElementById('loader').style.display = 'none';
+                        iframe.style.display = 'block';
+                    }, 2000);
+                }
+            } catch (e) {
+                console.error('[ArchiFlow Loader] Error:', e);
+                if (attempts < maxAttempts) {
+                    setTimeout(injectPlugin, 500);
+                }
+            }
+        }
+        
+        // Start injection after iframe loads
+        iframe.onload = function() {
+            console.log('[ArchiFlow Loader] Draw.io iframe loaded, waiting for initialization...');
+            setTimeout(injectPlugin, 1000);
+        };
+        
+        // Also try if iframe doesn't fire onload
+        setTimeout(injectPlugin, 2000);
+    </script>
+</body>
+</html>

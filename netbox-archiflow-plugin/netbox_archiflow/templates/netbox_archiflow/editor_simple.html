@@ -1,0 +1,90 @@
+{% extends 'base/layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>ArchiFlow Network Diagram Editor</h3>
+            </div>
+            <div class="card-body p-0">
+                <iframe 
+                    id="archiflow-frame" 
+                    src="http://localhost:8081/?embed=1"
+                    style="width: 100%; height: 80vh; border: none;">
+                </iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+console.log('ArchiFlow Editor Page Loaded');
+
+window.addEventListener('load', function() {
+    console.log('Window loaded, starting ArchiFlow initialization...');
+    
+    const iframe = document.getElementById('archiflow-frame');
+    console.log('Found iframe:', iframe);
+    
+    // Wait for iframe to load
+    iframe.onload = function() {
+        console.log('Iframe loaded successfully');
+        
+        // Wait a bit for Draw.io to initialize
+        setTimeout(function() {
+            console.log('Attempting to inject ArchiFlow plugin...');
+            
+            try {
+                // Try to access iframe
+                const iframeWindow = iframe.contentWindow;
+                console.log('Got iframe window:', iframeWindow);
+                
+                // Load the plugin
+                fetch('http://localhost:8081/plugins/archiflow-complete.js')
+                    .then(response => {
+                        console.log('Plugin fetch response:', response.status);
+                        return response.text();
+                    })
+                    .then(scriptContent => {
+                        console.log('Plugin script loaded, length:', scriptContent.length);
+                        
+                        // Try to inject it
+                        try {
+                            iframeWindow.eval(scriptContent);
+                            console.log('Plugin injected via eval');
+                        } catch (e) {
+                            console.log('Direct eval failed (cross-origin), trying postMessage');
+                            
+                            // Use postMessage instead
+                            iframeWindow.postMessage({
+                                action: 'loadPlugin',
+                                script: scriptContent
+                            }, '*');
+                        }
+                        
+                        // Check if ArchiFlow is available
+                        setTimeout(function() {
+                            try {
+                                if (iframeWindow.ArchiFlow) {
+                                    console.log('✅ ArchiFlow plugin loaded successfully!');
+                                    console.log('Version:', iframeWindow.ArchiFlow.version);
+                                } else {
+                                    console.log('⚠️ ArchiFlow not found, but plugin was injected');
+                                }
+                            } catch (e) {
+                                console.log('Cannot check ArchiFlow due to cross-origin');
+                            }
+                        }, 2000);
+                    })
+                    .catch(error => {
+                        console.error('Failed to load plugin:', error);
+                    });
+            } catch (e) {
+                console.log('Error during plugin injection:', e);
+            }
+        }, 3000);
+    };
+});
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "ArchiFlow Database",
+      "Group": "ArchiFlow",
+      "Host": "host.docker.internal",
+      "Port": 5433,
+      "MaintenanceDB": "archiflow",
+      "Username": "archiflow_user",
+      "Password": "archiflow_pass",
+      "SSLMode": "prefer",
+      "Comment": "ArchiFlow PostgreSQL Database - Use host.docker.internal if pgAdmin is in Docker, or localhost if running on host"
+    }
+  }
+}

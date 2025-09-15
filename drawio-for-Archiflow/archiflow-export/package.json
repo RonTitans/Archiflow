@@ -1,0 +1,57 @@
+{
+  "name": "archiflow-network-manager",
+  "version": "1.0.0",
+  "description": "ArchiFlow Network Management System - Draw.io Integration Module",
+  "main": "backend/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node backend/dev-server.js",
+    "start-simple": "node backend/simple-server.js",
+    "start-mcp": "node backend/mcp-server.js",
+    "start-db": "node backend/dev-server-db.js",
+    "serve-plugin": "node frontend/standalone-app/serve-plugin.js",
+    "build": "tsc",
+    "test": "node tests/integration/test-ip-management.js",
+    "dev": "node backend/dev-server-db.js"
+  },
+  "keywords": [
+    "network",
+    "diagram",
+    "drawio",
+    "ipam",
+    "mcp",
+    "archiflow"
+  ],
+  "author": "ArchiFlow Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.18.0",
+    "pg": "^8.16.3",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "concurrently": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "archiflow": {
+    "features": {
+      "ipManagement": true,
+      "templates": true,
+      "versioning": false,
+      "alerts": false
+    },
+    "integration": {
+      "drawio": {
+        "method": "plugin",
+        "version": "20.0.0+"
+      },
+      "mcp": {
+        "port": 3333,
+        "protocol": "websocket"
+      }
+    }
+  }
+}

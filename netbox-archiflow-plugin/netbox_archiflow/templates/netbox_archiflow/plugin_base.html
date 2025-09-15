@@ -1,0 +1,30 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}{{ title|default:"ArchiFlow" }}{% endblock %}
+
+{% block header %}
+    <nav class="breadcrumb-container px-3" aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'plugins:netbox_archiflow:diagram_list' %}">ArchiFlow</a></li>
+            {% block breadcrumbs %}{% endblock %}
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block tabs %}
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'diagram_list' %}active{% endif %}" 
+               href="{% url 'plugins:netbox_archiflow:diagram_list' %}">
+                Diagrams
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'diagram_editor' %}active{% endif %}" 
+               href="{% url 'plugins:netbox_archiflow:diagram_editor' %}">
+                Editor
+            </a>
+        </li>
+    </ul>
+{% endblock %}

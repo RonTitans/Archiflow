@@ -1,0 +1,78 @@
+{
+  "pools": [
+    {
+      "id": "POOL-001",
+      "name": "Management Network",
+      "network": "10.0.1.0/24",
+      "gateway": "10.0.1.1",
+      "dns": ["10.0.1.10", "10.0.1.11"],
+      "vlan": 10,
+      "description": "Management network for infrastructure devices",
+      "allocations": [
+        {"ip": "10.0.1.1", "status": "reserved", "description": "Gateway"},
+        {"ip": "10.0.1.10", "status": "allocated", "assetId": "AST-DNS-01", "description": "Primary DNS"},
+        {"ip": "10.0.1.11", "status": "allocated", "assetId": "AST-DNS-02", "description": "Secondary DNS"},
+        {"ip": "10.0.1.20", "status": "allocated", "assetId": "AST-001", "description": "Core-Router-01"},
+        {"ip": "10.0.1.21", "status": "allocated", "assetId": "AST-002", "description": "Core-Switch-01"}
+      ],
+      "available": ["10.0.1.22", "10.0.1.23", "10.0.1.24", "10.0.1.25", "10.0.1.26"],
+      "range": {
+        "start": "10.0.1.20",
+        "end": "10.0.1.250"
+      }
+    },
+    {
+      "id": "POOL-002",
+      "name": "Server Network",
+      "network": "10.0.20.0/24",
+      "gateway": "10.0.20.1",
+      "dns": ["10.0.1.10", "10.0.1.11"],
+      "vlan": 20,
+      "description": "Production server network",
+      "allocations": [
+        {"ip": "10.0.20.1", "status": "reserved", "description": "Gateway"},
+        {"ip": "10.0.20.10", "status": "allocated", "assetId": "AST-004", "description": "Web-Server-01"}
+      ],
+      "available": ["10.0.20.11", "10.0.20.12", "10.0.20.13", "10.0.20.14", "10.0.20.15"],
+      "range": {
+        "start": "10.0.20.10",
+        "end": "10.0.20.250"
+      }
+    },
+    {
+      "id": "POOL-003",
+      "name": "DMZ Network",
+      "network": "10.0.30.0/24",
+      "gateway": "10.0.30.1",
+      "dns": ["8.8.8.8", "8.8.4.4"],
+      "vlan": 30,
+      "description": "DMZ for public-facing services",
+      "allocations": [
+        {"ip": "10.0.30.1", "status": "reserved", "description": "Gateway"}
+      ],
+      "available": ["10.0.30.10", "10.0.30.11", "10.0.30.12", "10.0.30.13", "10.0.30.14"],
+      "range": {
+        "start": "10.0.30.10",
+        "end": "10.0.30.250"
+      }
+    },
+    {
+      "id": "POOL-004",
+      "name": "Branch NYC Network",
+      "network": "192.168.1.0/24",
+      "gateway": "192.168.1.1",
+      "dns": ["10.0.1.10", "10.0.1.11"],
+      "vlan": null,
+      "description": "NYC branch office network",
+      "allocations": [
+        {"ip": "192.168.1.1", "status": "reserved", "description": "Gateway"},
+        {"ip": "192.168.1.10", "status": "allocated", "assetId": "AST-005", "description": "Branch-Router-01"}
+      ],
+      "available": ["192.168.1.11", "192.168.1.12", "192.168.1.13", "192.168.1.14", "192.168.1.15"],
+      "range": {
+        "start": "192.168.1.10",
+        "end": "192.168.1.250"
+      }
+    }
+  ]
+}

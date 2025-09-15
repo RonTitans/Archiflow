@@ -1,0 +1,39 @@
+{% extends 'netbox_archiflow/plugin_base.html' %}
+
+{% block title %}Network Diagrams - ArchiFlow{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active">Diagrams</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between">
+                    <h5 class="card-title">ArchiFlow Network Diagrams</h5>
+                    <a href="{% url 'plugins:netbox_archiflow:diagram_editor' %}" class="btn btn-primary">
+                        <i class="mdi mdi-plus-thick"></i> New Diagram
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <p>Welcome to ArchiFlow - Your integrated network diagram tool with:</p>
+                <ul>
+                    <li>Visual network design with Draw.io</li>
+                    <li>Automatic IP allocation from NetBox IPAM</li>
+                    <li>Device catalog integration</li>
+                    <li>Real-time collaboration</li>
+                    <li>Template system</li>
+                </ul>
+                <div class="text-center mt-4">
+                    <a href="{% url 'plugins:netbox_archiflow:diagram_editor' %}" class="btn btn-lg btn-success">
+                        <i class="mdi mdi-draw"></i> Open Diagram Editor
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

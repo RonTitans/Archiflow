@@ -1,0 +1,91 @@
+{
+  "assets": [
+    {
+      "id": "AST-001",
+      "name": "Core-Router-01",
+      "type": "router",
+      "manufacturer": "Cisco",
+      "model": "ISR4451",
+      "location": "DC-01",
+      "status": "active",
+      "ip": null,
+      "vlan": null,
+      "ports": [
+        {"id": "GE0/0", "type": "ethernet", "speed": "1G", "status": "connected"},
+        {"id": "GE0/1", "type": "ethernet", "speed": "1G", "status": "available"}
+      ]
+    },
+    {
+      "id": "AST-002",
+      "name": "Core-Switch-01",
+      "type": "switch",
+      "manufacturer": "Cisco",
+      "model": "Catalyst 9300",
+      "location": "DC-01",
+      "status": "active",
+      "ip": null,
+      "vlan": [10, 20, 30],
+      "ports": [
+        {"id": "GE1/0/1", "type": "ethernet", "speed": "1G", "status": "connected"},
+        {"id": "GE1/0/2", "type": "ethernet", "speed": "1G", "status": "connected"},
+        {"id": "GE1/0/3", "type": "ethernet", "speed": "1G", "status": "available"}
+      ]
+    },
+    {
+      "id": "AST-003",
+      "name": "Firewall-01",
+      "type": "firewall",
+      "manufacturer": "Fortinet",
+      "model": "FortiGate 100F",
+      "location": "DC-01",
+      "status": "active",
+      "ip": null,
+      "zones": ["DMZ", "Internal", "External"]
+    },
+    {
+      "id": "AST-004",
+      "name": "Web-Server-01",
+      "type": "server",
+      "manufacturer": "Dell",
+      "model": "PowerEdge R750",
+      "location": "DC-01",
+      "status": "active",
+      "ip": null,
+      "vlan": 20,
+      "os": "Ubuntu 22.04",
+      "services": ["nginx", "postgresql"]
+    },
+    {
+      "id": "AST-005",
+      "name": "Branch-Router-01",
+      "type": "router",
+      "manufacturer": "Cisco",
+      "model": "ISR1111",
+      "location": "Branch-NYC",
+      "status": "active",
+      "ip": null
+    }
+  ],
+  "deviceTypes": {
+    "router": {
+      "icon": "router",
+      "defaultPorts": 4,
+      "categories": ["network", "routing"]
+    },
+    "switch": {
+      "icon": "switch",
+      "defaultPorts": 24,
+      "categories": ["network", "switching"]
+    },
+    "firewall": {
+      "icon": "firewall",
+      "defaultPorts": 8,
+      "categories": ["network", "security"]
+    },
+    "server": {
+      "icon": "server",
+      "defaultPorts": 2,
+      "categories": ["compute", "application"]
+    }
+  }
+}

@@ -1,0 +1,2174 @@
+/**
+ * ArchiFlow Network Manager Plugin for Draw.io - RESTORED VERSION
+ * Version: 2.0.0
+ * Complete plugin with the original good UI design
+ */
+Draw.loadPlugin(function(ui) {
+    'use strict';
+    
+    console.log('[ArchiFlow] Plugin loading v2.0.0...');
+    
+    // Create global ArchiFlow object
+    window.ArchiFlow = {
+        version: '2.0.0',
+        ui: ui,
+        graph: ui.editor.graph,
+        state: {
+            connected: false,
+            ws: null,
+            ipPools: [],
+            currentDiagramId: null,
+            pendingCallbacks: new Map()
+        },
+        config: {
+            wsUrl: 'ws://localhost:3333'
+        },
+        collaboration: {
+            enabled: true,
+            clientId: null,
+            users: new Map(), // userId -> {name, color, cursor, selection}
+            cursors: new Map(), // userId -> cursor element
+            selections: new Map(), // userId -> selection overlay
+            localUser: {
+                id: 'user-' + Date.now(),
+                name: 'User ' + Math.floor(Math.random() * 1000),
+                color: '#' + Math.floor(Math.random()*16777215).toString(16)
+            }
+        }
+    };
+    
+    // Add resources for menu items
+    mxResources.parse('archiflowMenu=ArchiFlow Network Tools...');
+    mxResources.parse('archiflowSaveDiagram=Save Diagram to Database');
+    mxResources.parse('archiflowLoadDiagram=Load Diagram from Database');
+    mxResources.parse('archiflowDevices=Add Network Device');
+    mxResources.parse('archiflowAllocateIP=Allocate IP Address');
+    mxResources.parse('archiflowIPReport=IP Pools Report');
+    mxResources.parse('archiflowSaveVersion=Save Version');
+    mxResources.parse('archiflowHistory=Version History');
+    
+    // Show main ArchiFlow menu with nice UI
+    ArchiFlow.showMainMenu = function() {
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.innerHTML = '<h3>🌐 ArchiFlow Network Tools</h3>' +
+            '<p>Version: ' + this.version + '</p>' +
+            '<p>Status: <span id="conn-status">' + (this.state.connected ? '✅ Connected' : '❌ Disconnected') + '</span></p>' +
+            '<p>IP Pools: ' + this.state.ipPools.length + ' loaded</p>' +
+            '<hr>' +
+            '<button onclick="ArchiFlow.showDeviceDialog()" style="width: 100%; padding: 10px; margin: 5px 0; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    ➕ Add Network Device' +
+            '</button>' +
+            '<button onclick="ArchiFlow.allocateIP()" style="width: 100%; padding: 10px; margin: 5px 0; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    🔢 Allocate IP Address' +
+            '</button>' +
+            '<button onclick="ArchiFlow.showIPReport()" style="width: 100%; padding: 10px; margin: 5px 0; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    📊 IP Pools Report' +
+            '</button>' +
+            '<button onclick="ArchiFlow.saveDiagram()" style="width: 100%; padding: 10px; margin: 5px 0; background: #9C27B0; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    💾 Save Diagram' +
+            '</button>' +
+            '<hr>' +
+            '<button onclick="ArchiFlow.saveVersion()" style="width: 100%; padding: 10px; margin: 5px 0; background: #607D8B; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    📝 Save Version' +
+            '</button>' +
+            '<button onclick="ArchiFlow.showHistory()" style="width: 100%; padding: 10px; margin: 5px 0; background: #795548; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    📜 Version History' +
+            '</button>' +
+            '<hr>' +
+            '<button onclick="ArchiFlow.showChangeLog()" style="width: 100%; padding: 10px; margin: 5px 0; background: #00BCD4; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    📝 Change Log' +
+            '</button>' +
+            '<button onclick="ArchiFlow.showAuditTrail()" style="width: 100%; padding: 10px; margin: 5px 0; background: #009688; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    🔍 Audit Trail' +
+            '</button>' +
+            '<hr>' +
+            '<button onclick="ArchiFlow.validateTopology()" style="width: 100%; padding: 10px; margin: 5px 0; background: #E91E63; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    🔍 Validate Topology' +
+            '</button>' +
+            '<button onclick="ArchiFlow.showAlertHistory()" style="width: 100%; padding: 10px; margin: 5px 0; background: #673AB7; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    🔔 Alert History' +
+            '</button>' +
+            '<hr>' +
+            '<button onclick="ArchiFlow.reconnect()" style="width: 100%; padding: 10px; margin: 5px 0; cursor: pointer;">' +
+            '    🔄 Reconnect' +
+            '</button>';
+            
+        var dlg = new mxWindow('ArchiFlow Network Tools', content, 
+            document.body.offsetWidth - 350, 100, 320, 500, true, true);
+        dlg.setClosable(true);
+        dlg.setVisible(true);
+    };
+    
+    // Show device dialog with dropdown
+    ArchiFlow.showDeviceDialog = function() {
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.innerHTML = '<h4>Add Network Device</h4>' +
+            '<label>Device Type:</label>' +
+            '<select id="deviceType" style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">' +
+            '    <option value="router">🔀 Router</option>' +
+            '    <option value="switch">🔁 Switch</option>' +
+            '    <option value="firewall">🔥 Firewall</option>' +
+            '    <option value="server">🖥️ Server</option>' +
+            '    <option value="loadbalancer">⚖️ Load Balancer</option>' +
+            '    <option value="accesspoint">📡 Access Point</option>' +
+            '</select>' +
+            '<label>Device Name:</label>' +
+            '<input type="text" id="deviceName" placeholder="e.g., Core-Router-01" ' +
+            '    style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">' +
+            '<button onclick="ArchiFlow.addDevice()" ' +
+            '    style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">' +
+            '    Add Device to Diagram' +
+            '</button>';
+            
+        var dlg = new mxWindow('Add Network Device', content, 
+            document.body.offsetWidth - 350, 200, 300, 250, true, true);
+        dlg.setClosable(true);
+        dlg.setVisible(true);
+        
+        // Store dialog reference for cleanup
+        window.currentDeviceDialog = dlg;
+    };
+    
+    // Add device from dialog
+    ArchiFlow.addDevice = function() {
+        var typeSelect = document.getElementById('deviceType');
+        var nameInput = document.getElementById('deviceName');
+        if (!typeSelect) return;
+        
+        var deviceType = typeSelect.value;
+        var deviceName = nameInput ? nameInput.value : '';
+        
+        // Log user action
+        ArchiFlow.logUserAction('add_device_initiated', {
+            type: deviceType,
+            name: deviceName
+        });
+        
+        if (!deviceName) {
+            deviceName = deviceType.toUpperCase() + '-' + Date.now().toString().slice(-4);
+        }
+        
+        var graph = ui.editor.graph;
+        var parent = graph.getDefaultParent();
+        
+        // Define colors for each device type
+        var colors = {
+            router: '#4CAF50',
+            switch: '#2196F3',
+            firewall: '#F44336',
+            server: '#9C27B0',
+            loadbalancer: '#FF9800',
+            accesspoint: '#00BCD4'
+        };
+        
+        graph.model.beginUpdate();
+        try {
+            var vertex = graph.insertVertex(
+                parent, null, 
+                deviceName + '\n[No IP]', 
+                20, 20, 120, 60,
+                'rounded=1;whiteSpace=wrap;html=1;fillColor=' + colors[deviceType] + ';strokeColor=#000000;fontColor=#FFFFFF;fontStyle=1;'
+            );
+            
+            // Store metadata
+            vertex.archiflow = {
+                type: deviceType,
+                assetId: 'ASSET-' + Date.now(),
+                ip: null,
+                name: deviceName,
+                poolId: null
+            };
+            
+            // Close dialog if exists
+            if (window.currentDeviceDialog) {
+                window.currentDeviceDialog.destroy();
+                window.currentDeviceDialog = null;
+            }
+            
+            // Select the new device
+            graph.setSelectionCell(vertex);
+            
+        } finally {
+            graph.model.endUpdate();
+        }
+    };
+    
+    // Enhanced IP allocation dialog
+    ArchiFlow.allocateIP = function() {
+        ArchiFlow.logUserAction('allocate_ip_initiated');
+        
+        var cell = ui.editor.graph.getSelectionCell();
+        // Initialize ArchiFlow properties if missing
+        if (cell && !cell.archiflow) {
+            cell.archiflow = {
+                type: cell.style || "device",
+                assetId: "ASSET-" + cell.id + "-" + Date.now(),
+                ip: null,
+                name: cell.value || "Device-" + cell.id,
+                poolId: null
+            };
+        }
+        // Ensure asset ID exists
+        if (cell && cell.archiflow && !cell.archiflow.assetId) {
+            cell.archiflow.assetId = "ASSET-" + cell.id + "-" + Date.now();
+        }
+        
+        if (!cell || !cell.archiflow) {
+            this.showAlert('No Device Selected', 'warning', 'Please select a network device first');
+            return;
+        }
+        
+        if (cell.archiflow.ip) {
+            this.showAlert('IP Already Allocated', 'info', 
+                'Device "' + cell.archiflow.name + '" already has IP: ' + cell.archiflow.ip);
+            return;
+        }
+        
+        // Create enhanced pool selection dialog
+        var content = document.createElement('div');
+        content.style.padding = '15px';
+        content.style.fontFamily = 'Arial, sans-serif';
+        
+        // Build pools data
+        var pools = this.state.ipPools.length > 0 ? this.state.ipPools : [
+            { id: 'POOL-001', name: 'Management Network', network: '10.0.1.0/24', available: ['10.0.1.20', '10.0.1.21', '10.0.1.22', '10.0.1.23', '10.0.1.24'], allocated: [] },
+            { id: 'POOL-002', name: 'Server Network', network: '10.0.2.0/24', available: ['10.0.2.10', '10.0.2.11', '10.0.2.12', '10.0.2.13', '10.0.2.14'], allocated: [] },
+            { id: 'POOL-003', name: 'DMZ Network', network: '10.0.3.0/24', available: ['10.0.3.1', '10.0.3.2', '10.0.3.3', '10.0.3.4', '10.0.3.5'], allocated: [] }
+        ];
+        
+        var html = 
+            '<div style="position: relative; background: white; border-radius: 8px;">' +
+            '<button onclick="ArchiFlow.closeIPDialog()" style="position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 18px; line-height: 1; z-index: 1000;">×</button>' +
+            '<div style="margin-bottom: 15px;">' +
+            '  <div style="display: flex; align-items: center; margin-bottom: 10px;">' +
+            '    <div style="width: 40px; height: 40px; background: #2196F3; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px;">' +
+            '      <span style="color: white; font-size: 20px;">🔢</span>' +
+            '    </div>' +
+            '    <div>' +
+            '      <h3 style="margin: 0; color: #333;">IP Address Allocation</h3>' +
+            '      <p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">Device: <strong>' + (cell.archiflow.name || 'Unnamed Device') + '</strong></p>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>' +
+            '<div style="margin-bottom: 15px;">' +
+            '  <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #555; font-size: 13px;">Select IP Pool:</label>' +
+            '  <div id="poolList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">';
+        
+        // Add pool options with visual indicators
+        pools.forEach(function(pool, index) {
+            var availableCount = pool.available.length;
+            var totalCount = availableCount + pool.allocated.length;
+            var usagePercent = totalCount > 0 ? Math.round((pool.allocated.length / totalCount) * 100) : 0;
+            var statusColor = availableCount > 10 ? '#4CAF50' : availableCount > 5 ? '#FF9800' : '#f44336';
+            
+            html += 
+                '<div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s;" ' +
+                '     onmouseover="this.style.background=\'#f5f5f5\'" ' +
+                '     onmouseout="this.style.background=\'white\'" ' +
+                '     onclick="ArchiFlow.selectIPPool(\'' + pool.id + '\', this)">' +
+                '  <input type="radio" name="poolSelection" value="' + pool.id + '" id="pool-' + pool.id + '" style="margin-right: 10px;"' +
+                (index === 0 ? ' checked' : '') + '>' +
+                '  <label for="pool-' + pool.id + '" style="cursor: pointer;">' +
+                '    <div style="display: flex; justify-content: space-between; align-items: center;">' +
+                '      <div>' +
+                '        <strong style="color: #333;">' + pool.name + '</strong><br>' +
+                '        <span style="color: #666; font-size: 12px;">' + pool.network + '</span>' +
+                '      </div>' +
+                '      <div style="text-align: right;">' +
+                '        <span style="color: ' + statusColor + '; font-weight: bold;">' + availableCount + ' available</span><br>' +
+                '        <div style="width: 60px; height: 4px; background: #eee; border-radius: 2px; margin-top: 4px;">' +
+                '          <div style="width: ' + usagePercent + '%; height: 100%; background: ' + statusColor + '; border-radius: 2px;"></div>' +
+                '        </div>' +
+                '      </div>' +
+                '    </div>' +
+                '  </label>' +
+                '</div>';
+        });
+        
+        html += 
+            '  </div>' +
+            '</div>' +
+            '<div id="poolDetails" style="background: #f7f7f7; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">' +
+            '  <strong>Pool Details:</strong><br>' +
+            '  <span id="poolDetailText">Select a pool to see details</span>' +
+            '</div>' +
+            '<div style="display: flex; gap: 10px; margin-top: 15px;">' +
+            '  <button onclick="ArchiFlow.doAllocateIP()" style="flex: 1; padding: 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🔢 Allocate IP</button>' +
+            '  <button onclick="ArchiFlow.closeIPDialog()" style="flex: 1; padding: 12px; background: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>' +
+            '</div>' +
+            '</div>';
+        
+        content.innerHTML = html;
+        
+        // Store pools data for later use
+        window.currentIPPools = pools;
+        
+        // Auto-select first pool and show details
+        setTimeout(function() {
+            if (pools.length > 0) {
+                ArchiFlow.selectIPPool(pools[0].id);
+            }
+        }, 100);
+        
+        var dlg = new mxWindow('IP Address Allocation', content, 
+            (window.innerWidth - 420) / 2, 
+            (window.innerHeight - 480) / 2, 
+            420, 480, true, true);
+        dlg.setClosable(true);
+        dlg.setResizable(false);
+        dlg.setVisible(true);
+        
+        window.currentIPDialog = dlg;
+    };
+    
+    // Select IP pool and show details
+    ArchiFlow.selectIPPool = function(poolId, element) {
+        // Update radio button
+        var radio = document.getElementById('pool-' + poolId);
+        if (radio) radio.checked = true;
+        
+        // Update pool details
+        var pool = window.currentIPPools.find(function(p) { return p.id === poolId; });
+        if (pool) {
+            var detailsEl = document.getElementById('poolDetailText');
+            if (detailsEl) {
+                var nextIP = pool.available[0] || 'No IPs available';
+                detailsEl.innerHTML = 
+                    'Network: <strong>' + pool.network + '</strong><br>' +
+                    'Available IPs: <strong>' + pool.available.length + '</strong><br>' +
+                    'Next IP: <strong>' + nextIP + '</strong><br>' +
+                    'Gateway: <strong>' + pool.network.replace(/\.0\/\d+$/, '.1') + '</strong>';
+            }
+        }
+    };
+    
+    // Close IP dialog
+    ArchiFlow.closeIPDialog = function() {
+        if (window.currentIPDialog) {
+            try {
+                window.currentIPDialog.destroy();
+            } catch (e) {
+                // Ignore errors during close
+            }
+            window.currentIPDialog = null;
+        }
+    };
+    
+    // Do the actual IP allocation
+    ArchiFlow.doAllocateIP = function() {
+        // Get selected pool from radio buttons
+        var selectedRadio = document.querySelector('input[name="poolSelection"]:checked');
+        var cell = ui.editor.graph.getSelectionCell();
+        
+        if (!selectedRadio || !cell) return;
+        
+        var poolId = selectedRadio.value;
+        
+        // If connected to backend, use real allocation
+        if (this.state.connected) {
+            this.sendMessage('allocate-ip', {
+                poolId: poolId,
+                assetId: cell.archiflow.assetId,
+                deviceType: cell.archiflow.type,
+                deviceName: cell.archiflow.name
+            }, function(response) {
+                if (response.success) {
+                    // Check for conflicts before assigning
+                    var conflicts = ArchiFlow.checkIPAllocation(response.ip, poolId);
+                    if (conflicts.length > 0) {
+                        ArchiFlow.showAlert('IP Conflict Detected', 'error', 
+                            'IP ' + response.ip + ' is already in use by ' + conflicts[0].device);
+                        return;
+                    }
+                    
+                    // Update cell with IP
+                    ui.editor.graph.model.beginUpdate();
+                    try {
+                        cell.archiflow.ip = response.ip;
+                        cell.archiflow.poolId = poolId;
+                        var newLabel = cell.archiflow.name + '\n' + response.ip;
+                        ui.editor.graph.model.setValue(cell, newLabel);
+                    } finally {
+                        ui.editor.graph.model.endUpdate();
+                    }
+                    
+                    ArchiFlow.showAlert('IP Allocated Successfully', 'success', 
+                        'Assigned ' + response.ip + ' to ' + cell.archiflow.name);
+                    
+                    ArchiFlow.logUserAction('ip_allocated', {
+                        ip: response.ip,
+                        device: cell.archiflow.name,
+                        poolId: poolId
+                    });
+                } else {
+                    ArchiFlow.showAlert('IP Allocation Failed', 'error', 
+                        response.error || 'No available IPs in selected pool');
+                    
+                    ArchiFlow.logUserAction('ip_allocation_failed', {
+                        error: response.error,
+                        device: cell.archiflow.name,
+                        poolId: poolId
+                    });
+                }
+            });
+        } else {
+            // Mock allocation for demo
+            var ip = '10.0.' + Math.floor(Math.random() * 3 + 1) + '.' + Math.floor(Math.random() * 254 + 1);
+            
+            // Check for conflicts
+            var conflicts = ArchiFlow.checkIPAllocation(ip, poolId);
+            if (conflicts.length > 0) {
+                ArchiFlow.showAlert('IP Conflict Detected', 'error', 
+                    'IP ' + ip + ' is already in use by ' + conflicts[0].device);
+                return;
+            }
+            
+            ui.editor.graph.model.beginUpdate();
+            try {
+                cell.archiflow.ip = ip;
+                cell.archiflow.poolId = poolId;
+                var newLabel = cell.archiflow.name + '\n' + ip;
+                ui.editor.graph.model.setValue(cell, newLabel);
+            } finally {
+                ui.editor.graph.model.endUpdate();
+            }
+            
+            ArchiFlow.showAlert('IP Allocated (Mock)', 'success', 
+                'Assigned ' + ip + ' to ' + cell.archiflow.name);
+        }
+        
+        // Close dialog
+        if (window.currentIPDialog) {
+            window.currentIPDialog.destroy();
+            window.currentIPDialog = null;
+        }
+    };
+    
+    // Show IP Report with nice visualization
+    ArchiFlow.showIPReport = function() {
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.innerHTML = '<h3>IP Pool Usage Report</h3>' +
+            '<div style="margin: 10px 0;">' +
+            '<strong>Management Network (10.0.1.0/24)</strong><br>' +
+            '<div style="background:#eee; height:25px; width:100%; border:1px solid #999; border-radius: 3px; overflow: hidden;">' +
+            '<div style="background:linear-gradient(to right, #4CAF50, #45a049); height:100%; width:30%; text-align:center; line-height: 25px; color:white; font-weight: bold;">30%</div>' +
+            '</div>' +
+            '<small>Used: 30 / Total: 100 | Available: 70</small>' +
+            '</div>' +
+            '<div style="margin: 10px 0;">' +
+            '<strong>Server Network (10.0.2.0/24)</strong><br>' +
+            '<div style="background:#eee; height:25px; width:100%; border:1px solid #999; border-radius: 3px; overflow: hidden;">' +
+            '<div style="background:linear-gradient(to right, #FF9800, #F57C00); height:100%; width:65%; text-align:center; line-height: 25px; color:white; font-weight: bold;">65%</div>' +
+            '</div>' +
+            '<small>Used: 65 / Total: 100 | Available: 35</small>' +
+            '</div>' +
+            '<div style="margin: 10px 0;">' +
+            '<strong>DMZ Network (10.0.3.0/24)</strong><br>' +
+            '<div style="background:#eee; height:25px; width:100%; border:1px solid #999; border-radius: 3px; overflow: hidden;">' +
+            '<div style="background:linear-gradient(to right, #f44336, #da190b); height:100%; width:85%; text-align:center; line-height: 25px; color:white; font-weight: bold;">85%</div>' +
+            '</div>' +
+            '<small>Used: 85 / Total: 100 | Available: 15 ⚠️</small>' +
+            '</div>' +
+            '<hr>' +
+            '<p><strong>Summary:</strong></p>' +
+            '<p>Total Pools: 3 | Total IPs: 300 | Total Used: 180 (60%)</p>';
+            
+        var dlg = new mxWindow('IP Usage Report', content, 300, 200, 450, 350, true, true);
+        dlg.setVisible(true);
+    };
+    
+    // Save version
+    ArchiFlow.saveVersion = function() {
+        ArchiFlow.logUserAction('save_version_initiated');
+        
+        var desc = prompt('Enter version description:', 'Network topology update');
+        if (desc) {
+            alert('✅ Version saved: ' + desc);
+        }
+    };
+    
+    // Show version history
+    ArchiFlow.showHistory = function() {
+        ArchiFlow.logUserAction('view_version_history');
+        
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.innerHTML = '<h3>Version History</h3>' +
+            '<table border="1" style="width:100%; border-collapse: collapse;">' +
+            '<tr style="background: #f0f0f0;"><th style="padding: 5px;">Version</th><th style="padding: 5px;">Date</th><th style="padding: 5px;">User</th><th style="padding: 5px;">Description</th></tr>' +
+            '<tr><td style="padding: 5px;">v5</td><td style="padding: 5px;">Today 14:30</td><td style="padding: 5px;">Admin</td><td style="padding: 5px;">Added DMZ firewall rules</td></tr>' +
+            '<tr><td style="padding: 5px;">v4</td><td style="padding: 5px;">Today 10:15</td><td style="padding: 5px;">Admin</td><td style="padding: 5px;">Updated server IPs</td></tr>' +
+            '<tr><td style="padding: 5px;">v3</td><td style="padding: 5px;">Yesterday</td><td style="padding: 5px;">Admin</td><td style="padding: 5px;">Added load balancer</td></tr>' +
+            '<tr><td style="padding: 5px;">v2</td><td style="padding: 5px;">2 days ago</td><td style="padding: 5px;">User</td><td style="padding: 5px;">Network segmentation</td></tr>' +
+            '<tr><td style="padding: 5px;">v1</td><td style="padding: 5px;">3 days ago</td><td style="padding: 5px;">Admin</td><td style="padding: 5px;">Initial network design</td></tr>' +
+            '</table>';
+            
+        var dlg = new mxWindow('Version History', content, 250, 150, 500, 300, true, true);
+        dlg.setVisible(true);
+    };
+    
+    // Save diagram to database
+    ArchiFlow.saveDiagram = function() {
+        ArchiFlow.logUserAction('save_diagram_initiated');
+        
+        var graph = ui.editor.graph;
+        
+        // Create save dialog
+        var content = document.createElement('div');
+        content.style.cssText = 'padding: 20px; background: white; font-family: Arial, sans-serif; border-radius: 8px;';
+        
+        var html = '<div style="position: relative;">' +
+            '<button onclick="ArchiFlow.closeSaveDialog()" style="position: absolute; top: -10px; right: -10px; background: #f44336; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 18px; line-height: 1; z-index: 1000;">×</button>' +
+            '<h3 style="margin-top: 0; color: #333;">💾 Save Diagram</h3>' +
+            '<div style="margin-bottom: 15px;">' +
+            '  <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Diagram Name:</label>' +
+            '  <input type="text" id="diagramName" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="Enter diagram name" value="Network Diagram">' +
+            '</div>' +
+            '<div style="margin-bottom: 15px;">' +
+            '  <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Description:</label>' +
+            '  <textarea id="diagramDescription" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; box-sizing: border-box;" placeholder="Optional description"></textarea>' +
+            '</div>' +
+            '<div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">' +
+            '  <button onclick="ArchiFlow.doSaveDiagram()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Save</button>' +
+            '  <button onclick="ArchiFlow.closeSaveDialog()" style="padding: 10px 20px; background: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>' +
+            '</div>' +
+            '</div>';
+        
+        content.innerHTML = html;
+        
+        var dlg = new mxWindow('Save Diagram', content, 
+            (window.innerWidth - 450) / 2, 
+            (window.innerHeight - 280) / 2, 
+            450, 280, true, true);
+        dlg.setClosable(true);
+        dlg.setResizable(false);
+        dlg.setVisible(true);
+        
+        ArchiFlow.saveDialog = dlg;
+    };
+    
+    // Close save dialog
+    ArchiFlow.closeSaveDialog = function() {
+        if (ArchiFlow.saveDialog) {
+            try {
+                ArchiFlow.saveDialog.destroy();
+            } catch (e) {
+                // Ignore errors during close
+            }
+            ArchiFlow.saveDialog = null;
+        }
+    };
+    
+    // Actually perform the save
+    ArchiFlow.doSaveDiagram = function() {
+        var graph = ui.editor.graph;
+        var name = document.getElementById('diagramName').value || 'Network Diagram';
+        var description = document.getElementById('diagramDescription').value || '';
+        
+        // Get the current diagram XML
+        var encoder = new mxCodec();
+        var node = encoder.encode(graph.getModel());
+        var xml = mxUtils.getXml(node);
+        
+        // Extract metadata from all cells
+        var metadata = {
+            devices: [],
+            connections: [],
+            ipAllocations: []
+        };
+        
+        var cells = graph.getModel().cells;
+        for (var id in cells) {
+            var cell = cells[id];
+            if (cell.value && cell.value.getAttribute) {
+                // It's a device
+                if (cell.value.getAttribute('archiflow_type')) {
+                    metadata.devices.push({
+                        id: cell.id,
+                        type: cell.value.getAttribute('archiflow_type'),
+                        assetId: cell.value.getAttribute('archiflow_assetId'),
+                        ip: cell.value.getAttribute('archiflow_ip'),
+                        deviceName: cell.value.getAttribute('label')
+                    });
+                    
+                    if (cell.value.getAttribute('archiflow_ip')) {
+                        metadata.ipAllocations.push({
+                            assetId: cell.value.getAttribute('archiflow_assetId'),
+                            ip: cell.value.getAttribute('archiflow_ip'),
+                            poolId: cell.value.getAttribute('archiflow_poolId')
+                        });
+                    }
+                }
+            } else if (cell.edge) {
+                // It's a connection
+                metadata.connections.push({
+                    id: cell.id,
+                    source: cell.source ? cell.source.id : null,
+                    target: cell.target ? cell.target.id : null
+                });
+            }
+        }
+        
+        // Send to backend
+        ArchiFlow.sendMessage('save-diagram', {
+            name: name,
+            xml: xml,
+            metadata: metadata,
+            description: description,
+            userId: 'drawio-user'
+        }, function(result) {
+            if (result.success) {
+                // Close the save dialog
+                ArchiFlow.closeSaveDialog();
+                
+                // Store the diagram ID for future saves
+                ArchiFlow.currentDiagramId = result.id;
+                
+                // Join the diagram room if not already joined
+                if (!ArchiFlow.collaboration.users.size) {
+                    ArchiFlow.joinDiagram(result.id);
+                }
+                
+                ArchiFlow.showAlert('Success', 'success', 
+                    'Diagram saved successfully! ID: ' + result.id + ' (v' + (result.version || 1) + ')');
+            } else {
+                ArchiFlow.showAlert('Error', 'error', 
+                    'Failed to save diagram: ' + (result.error || 'Unknown error'));
+            }
+        });
+    };
+    
+    // Load diagram from database
+    ArchiFlow.loadDiagram = function() {
+        ArchiFlow.logUserAction('load_diagram_initiated');
+        
+        // First, get list of available diagrams
+        ArchiFlow.sendMessage('list-diagrams', {}, function(result) {
+            if (result.success && result.diagrams && result.diagrams.length > 0) {
+                // Create selection dialog with consistent styling
+                var content = document.createElement('div');
+                content.style.cssText = 'padding: 20px; background: white; font-family: Arial, sans-serif; border-radius: 8px;';
+                
+                var html = '<div style="position: relative;">' +
+                    '<button onclick="ArchiFlow.closeCurrentDialog()" style="position: absolute; top: -10px; right: -10px; background: #f44336; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 18px; line-height: 1; z-index: 1000;">×</button>' +
+                    '<h3 style="margin-top: 0; color: #333;">📂 Load Diagram from Database</h3>' +
+                    '<p style="color: #666; margin: 10px 0;">Select a diagram to load:</p>' +
+                    '<select id="diagramSelect" style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;">' +
+                    '<option value="">-- Select a diagram --</option>';
+                
+                // Filter and sort diagrams
+                var filteredDiagrams = result.diagrams.filter(function(d) {
+                    return d.name && !d.name.startsWith('Auto-saved');
+                });
+                
+                filteredDiagrams.forEach(function(diagram) {
+                    var date = new Date(diagram.updated_at || diagram.created_at).toLocaleString();
+                    html += '<option value="' + diagram.id + '">' + 
+                            mxUtils.htmlEntities(diagram.name) + ' (v' + (diagram.version || 1) + ' - ' + date + ')</option>';
+                });
+                
+                html += '</select>';
+                html += '<div style="margin-top: 20px; text-align: right;">';
+                html += '<button onclick="ArchiFlow.doLoadDiagram()" style="padding: 10px 20px; margin-left: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Load</button>';
+                html += '<button onclick="ArchiFlow.closeCurrentDialog()" style="padding: 10px 20px; background: #999; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Cancel</button>';
+                html += '</div>';
+                html += '</div>';
+                
+                content.innerHTML = html;
+                
+                // Create dialog with proper size
+                var dlg = new mxWindow('Load Diagram', content, 
+                    (window.innerWidth - 500) / 2, 
+                    (window.innerHeight - 400) / 2, 
+                    500, 400, true, true);
+                dlg.setClosable(true);
+                dlg.setResizable(false);
+                dlg.setVisible(true);
+                
+                // Store dialog reference for closing
+                ArchiFlow.currentDialog = dlg;
+            } else {
+                ArchiFlow.showAlert('No Diagrams', 'warning', 'No saved diagrams found in database');
+            }
+        });
+    };
+    
+    // Helper function to close current dialog
+    ArchiFlow.closeCurrentDialog = function() {
+        if (ArchiFlow.currentDialog) {
+            try {
+                ArchiFlow.currentDialog.destroy();
+            } catch (e) {
+                // Ignore errors during close
+            }
+            ArchiFlow.currentDialog = null;
+        }
+    };
+    
+    // Actually load the selected diagram
+    ArchiFlow.doLoadDiagram = function() {
+        var select = document.getElementById('diagramSelect');
+        var diagramId = select ? select.value : null;
+        
+        if (diagramId) {
+            ArchiFlow.sendMessage('load-diagram', { id: diagramId }, function(result) {
+                if (result.success && result.diagram) {
+                    var graph = ui.editor.graph;
+                    
+                    // Clear current diagram
+                    graph.getModel().clear();
+                    
+                    // Load the XML
+                    var doc = mxUtils.parseXml(result.diagram.xml);
+                    var codec = new mxCodec(doc);
+                    codec.decode(doc.documentElement, graph.getModel());
+                    
+                    // Store the diagram ID
+                    ArchiFlow.currentDiagramId = result.diagram.id;
+                    
+                    // Join the diagram room for collaboration
+                    ArchiFlow.joinDiagram(result.diagram.id);
+                    
+                    // Fit the diagram to the viewport
+                    graph.fit();
+                    
+                    // Close the dialog
+                    ArchiFlow.closeCurrentDialog();
+                    
+                    ArchiFlow.showAlert('Success', 'success', 
+                        'Diagram "' + result.diagram.name + '" loaded (v' + (result.diagram.version || 1) + ')');
+                } else {
+                    ArchiFlow.showAlert('Load Failed', 'error', result.error || 'Unknown error');
+                }
+            });
+        } else {
+            ArchiFlow.showAlert('No Selection', 'warning', 'Please select a diagram to load');
+        }
+    };
+    
+    // Register actions for menu
+    ui.actions.addAction('archiflowMenu', function() {
+        ArchiFlow.showMainMenu();
+    });
+    
+    ui.actions.addAction('archiflowDevices', function() {
+        ArchiFlow.showDeviceDialog();
+    });
+    
+    ui.actions.addAction('archiflowAllocateIP', function() {
+        ArchiFlow.allocateIP();
+    });
+    
+    ui.actions.addAction('archiflowIPReport', function() {
+        ArchiFlow.showIPReport();
+    });
+    
+    ui.actions.addAction('archiflowSaveVersion', function() {
+        ArchiFlow.saveVersion();
+    });
+    
+    ui.actions.addAction('archiflowHistory', function() {
+        ArchiFlow.showHistory();
+    });
+    
+    ui.actions.addAction('archiflowSaveDiagram', function() {
+        ArchiFlow.saveDiagram();
+    });
+    
+    ui.actions.addAction('archiflowLoadDiagram', function() {
+        ArchiFlow.loadDiagram();
+    });
+    
+    // Modify Extras menu
+    var menu = ui.menus.get('extras');
+    var oldFunct = menu.funct;
+    
+    menu.funct = function(menu, parent) {
+        oldFunct.apply(this, arguments);
+        
+        // Add separator
+        ui.menus.addMenuItems(menu, ['-'], parent);
+        
+        // Add our main menu item
+        ui.menus.addMenuItems(menu, ['archiflowMenu'], parent);
+        
+        // Add diagram persistence items
+        ui.menus.addMenuItems(menu, ['archiflowSaveDiagram', 'archiflowLoadDiagram'], parent);
+        
+        // Add quick access items
+        ui.menus.addMenuItems(menu, ['archiflowDevices', 'archiflowAllocateIP', 'archiflowIPReport'], parent);
+        ui.menus.addMenuItems(menu, ['-', 'archiflowSaveVersion', 'archiflowHistory'], parent);
+    };
+    
+    // Change Tracking System
+    ArchiFlow.changeLog = [];
+    ArchiFlow.auditTrail = [];
+    ArchiFlow.lastDiagramState = null;
+    
+    // Initialize change tracking
+    ArchiFlow.initChangeTracking = function() {
+        var model = this.graph.getModel();
+        
+        // Track all model changes
+        model.addListener(mxEvent.CHANGE, function(sender, evt) {
+            var changes = evt.getProperty('edit').changes;
+            ArchiFlow.logChanges(changes);
+        });
+        
+        // Track selection changes
+        this.graph.getSelectionModel().addListener(mxEvent.CHANGE, function(sender, evt) {
+            ArchiFlow.logUserAction('selection_changed', {
+                cells: ArchiFlow.graph.getSelectionCells().length
+            });
+        });
+        
+        console.log('[ArchiFlow] Change tracking initialized');
+    };
+    
+    // Log diagram changes
+    ArchiFlow.logChanges = function(changes) {
+        if (!changes || changes.length === 0) return;
+        
+        var timestamp = new Date().toISOString();
+        var user = 'current_user';
+        
+        changes.forEach(function(change) {
+            var changeEntry = {
+                timestamp: timestamp,
+                user: user,
+                type: change.constructor.name,
+                details: {}
+            };
+            
+            // Log different types of changes
+            if (change instanceof mxChildChange) {
+                changeEntry.action = change.child ? 'cell_added' : 'cell_removed';
+                changeEntry.details.cellId = change.child ? change.child.id : 'unknown';
+                changeEntry.details.cellType = change.child && change.child.value ? 
+                    (change.child.value.tagName || 'shape') : 'unknown';
+            } else if (change instanceof mxGeometryChange) {
+                changeEntry.action = 'cell_moved_resized';
+                changeEntry.details.cellId = change.cell.id;
+            } else if (change instanceof mxValueChange) {
+                changeEntry.action = 'cell_value_changed';
+                changeEntry.details.cellId = change.cell.id;
+            } else if (change instanceof mxStyleChange) {
+                changeEntry.action = 'cell_style_changed';
+                changeEntry.details.cellId = change.cell.id;
+            }
+            
+            // Add to change log
+            ArchiFlow.changeLog.push(changeEntry);
+            
+            // Send to backend if connected
+            if (ArchiFlow.state.connected) {
+                ArchiFlow.sendMessage('log-change', changeEntry);
+            }
+        });
+        
+        // Keep only last 1000 changes in memory
+        if (this.changeLog.length > 1000) {
+            this.changeLog = this.changeLog.slice(-1000);
+        }
+    };
+    
+    // Log user actions for audit trail
+    ArchiFlow.logUserAction = function(action, details) {
+        var entry = {
+            timestamp: new Date().toISOString(),
+            user: 'current_user',
+            action: action,
+            details: details || {}
+        };
+        
+        this.auditTrail.push(entry);
+        
+        // Send to backend if connected
+        if (this.state.connected) {
+            this.sendMessage('log-audit', entry);
+        }
+        
+        // Keep only last 500 actions in memory
+        if (this.auditTrail.length > 500) {
+            this.auditTrail = this.auditTrail.slice(-500);
+        }
+    };
+    
+    // Show change log dialog
+    ArchiFlow.showChangeLog = function() {
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.style.maxHeight = '400px';
+        content.style.overflowY = 'auto';
+        
+        var html = '<h4>📝 Recent Changes</h4>';
+        
+        if (this.changeLog.length === 0) {
+            html += '<p>No changes recorded yet.</p>';
+        } else {
+            html += '<table style="width:100%; border-collapse: collapse;">';
+            html += '<tr style="background:#f0f0f0;">' +
+                '<th style="padding:5px; border:1px solid #ddd;">Time</th>' +
+                '<th style="padding:5px; border:1px solid #ddd;">Action</th>' +
+                '<th style="padding:5px; border:1px solid #ddd;">Details</th>' +
+                '</tr>';
+            
+            // Show last 20 changes
+            var recentChanges = this.changeLog.slice(-20).reverse();
+            recentChanges.forEach(function(change) {
+                var time = new Date(change.timestamp).toLocaleTimeString();
+                var details = '';
+                
+                if (change.details.cellId) {
+                    details = 'Cell: ' + change.details.cellId;
+                }
+                if (change.details.cellType) {
+                    details += ' (' + change.details.cellType + ')';
+                }
+                
+                html += '<tr>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + time + '</td>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + change.action + '</td>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + details + '</td>' +
+                    '</tr>';
+            });
+            
+            html += '</table>';
+        }
+        
+        html += '<br><button onclick="ArchiFlow.exportChangeLog()" ' +
+            'style="padding:8px 15px; background:#2196F3; color:white; border:none; border-radius:4px; cursor:pointer;">' +
+            '💾 Export Full Log</button>';
+        
+        content.innerHTML = html;
+        
+        var dlg = new mxWindow('Change Log', content,
+            document.body.offsetWidth - 450, 150, 420, 500, true, true);
+        dlg.setClosable(true);
+        dlg.setVisible(true);
+    };
+    
+    // Show audit trail dialog
+    ArchiFlow.showAuditTrail = function() {
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.style.maxHeight = '400px';
+        content.style.overflowY = 'auto';
+        
+        var html = '<h4>🔍 Audit Trail</h4>';
+        
+        if (this.auditTrail.length === 0) {
+            html += '<p>No user actions recorded yet.</p>';
+        } else {
+            html += '<table style="width:100%; border-collapse: collapse;">';
+            html += '<tr style="background:#f0f0f0;">' +
+                '<th style="padding:5px; border:1px solid #ddd;">Time</th>' +
+                '<th style="padding:5px; border:1px solid #ddd;">User</th>' +
+                '<th style="padding:5px; border:1px solid #ddd;">Action</th>' +
+                '</tr>';
+            
+            // Show last 30 actions
+            var recentActions = this.auditTrail.slice(-30).reverse();
+            recentActions.forEach(function(action) {
+                var time = new Date(action.timestamp).toLocaleTimeString();
+                
+                html += '<tr>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + time + '</td>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + action.user + '</td>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + action.action + '</td>' +
+                    '</tr>';
+            });
+            
+            html += '</table>';
+        }
+        
+        content.innerHTML = html;
+        
+        var dlg = new mxWindow('Audit Trail', content,
+            document.body.offsetWidth - 400, 200, 370, 450, true, true);
+        dlg.setClosable(true);
+        dlg.setVisible(true);
+    };
+    
+    // Export change log as JSON
+    ArchiFlow.exportChangeLog = function() {
+        var data = {
+            exported: new Date().toISOString(),
+            diagram: this.state.currentDiagramId || 'untitled',
+            changes: this.changeLog,
+            audit: this.auditTrail
+        };
+        
+        var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'archiflow-changelog-' + Date.now() + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.logUserAction('exported_change_log');
+    };
+    
+    // Alert System
+    ArchiFlow.alerts = [];
+    ArchiFlow.alertContainer = null;
+    
+    // Initialize alert system
+    ArchiFlow.initAlertSystem = function() {
+        // Create alert container
+        this.alertContainer = document.createElement('div');
+        this.alertContainer.id = 'archiflow-alerts';
+        this.alertContainer.style.cssText = 'position:fixed;top:70px;right:10px;width:300px;z-index:10001;';
+        document.body.appendChild(this.alertContainer);
+        
+        console.log('[ArchiFlow] Alert system initialized');
+    };
+    
+    // Show alert with different types
+    ArchiFlow.showAlert = function(message, type, details) {
+        type = type || 'info';
+        
+        var alertDiv = document.createElement('div');
+        alertDiv.className = 'archiflow-alert';
+        
+        var bgColor = '#2196F3'; // info
+        var icon = 'ℹ️';
+        
+        switch(type) {
+            case 'success':
+                bgColor = '#4CAF50';
+                icon = '✅';
+                break;
+            case 'warning':
+                bgColor = '#FF9800';
+                icon = '⚠️';
+                break;
+            case 'error':
+                bgColor = '#f44336';
+                icon = '❌';
+                break;
+        }
+        
+        alertDiv.style.cssText = 
+            'background:' + bgColor + ';' +
+            'color:white;' +
+            'padding:12px;' +
+            'border-radius:4px;' +
+            'margin-bottom:10px;' +
+            'box-shadow:0 2px 5px rgba(0,0,0,0.2);' +
+            'animation:slideIn 0.3s ease;' +
+            'position:relative;';
+        
+        var html = '<div style="display:flex;align-items:center;">' +
+            '<span style="font-size:20px;margin-right:10px;">' + icon + '</span>' +
+            '<div style="flex:1;">' +
+            '<div style="font-weight:bold;">' + message + '</div>';
+        
+        if (details) {
+            html += '<div style="font-size:12px;margin-top:4px;opacity:0.9;">' + details + '</div>';
+        }
+        
+        html += '</div>' +
+            '<button onclick="this.parentElement.parentElement.remove()" ' +
+            'style="background:none;border:none;color:white;font-size:18px;cursor:pointer;padding:0;margin-left:10px;">×</button>' +
+            '</div>';
+        
+        alertDiv.innerHTML = html;
+        
+        // Add to container
+        this.alertContainer.appendChild(alertDiv);
+        
+        // Store alert
+        var alert = {
+            timestamp: new Date().toISOString(),
+            type: type,
+            message: message,
+            details: details
+        };
+        this.alerts.push(alert);
+        
+        // Log to audit trail
+        this.logUserAction('alert_shown', alert);
+        
+        // Auto-remove after 5 seconds for non-error alerts
+        if (type !== 'error') {
+            setTimeout(function() {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // Keep only last 100 alerts in memory
+        if (this.alerts.length > 100) {
+            this.alerts = this.alerts.slice(-100);
+        }
+    };
+    
+    // Check for IP allocation conflicts
+    ArchiFlow.checkIPAllocation = function(ip, poolId) {
+        // Simulate checking for conflicts
+        var conflicts = [];
+        
+        // Check if IP is already allocated
+        var cells = this.graph.getModel().cells;
+        for (var id in cells) {
+            var cell = cells[id];
+            if (cell.archiflow && cell.archiflow.ip === ip) {
+                conflicts.push({
+                    type: 'duplicate_ip',
+                    message: 'IP already allocated',
+                    device: cell.archiflow.name || 'Unknown Device'
+                });
+            }
+        }
+        
+        // Return conflicts
+        return conflicts;
+    };
+    
+    // Validate network topology
+    ArchiFlow.validateTopology = function() {
+        ArchiFlow.logUserAction('validate_topology_initiated');
+        
+        var issues = [];
+        var cells = this.graph.getModel().cells;
+        var deviceCount = 0;
+        var connectionCount = 0;
+        var isolatedDevices = [];
+        var devices = [];
+        var connections = [];
+        
+        // Count devices and connections
+        for (var id in cells) {
+            var cell = cells[id];
+            
+            if (cell.archiflow) {
+                deviceCount++;
+                
+                // Collect device data
+                devices.push({
+                    id: cell.id,
+                    name: cell.archiflow.name,
+                    type: cell.archiflow.type,
+                    ip: cell.archiflow.ip,
+                    vlan: cell.archiflow.vlan
+                });
+                
+                // Check if device has connections
+                var edges = this.graph.getEdges(cell);
+                if (!edges || edges.length === 0) {
+                    isolatedDevices.push(cell.archiflow.name || 'Device ' + id);
+                }
+            }
+            
+            if (cell.edge) {
+                connectionCount++;
+                
+                // Collect connection data
+                if (cell.source && cell.target) {
+                    var sourceCell = this.graph.getModel().getCell(cell.source.id);
+                    var targetCell = this.graph.getModel().getCell(cell.target.id);
+                    
+                    connections.push({
+                        id: cell.id,
+                        source: sourceCell && sourceCell.archiflow ? sourceCell.archiflow.name : 'Unknown',
+                        target: targetCell && targetCell.archiflow ? targetCell.archiflow.name : 'Unknown',
+                        sourceVlan: sourceCell && sourceCell.archiflow ? sourceCell.archiflow.vlan : null,
+                        targetVlan: targetCell && targetCell.archiflow ? targetCell.archiflow.vlan : null
+                    });
+                }
+            }
+        }
+        
+        // Check for issues
+        if (isolatedDevices.length > 0) {
+            issues.push({
+                type: 'isolated_devices',
+                severity: 'warning',
+                message: 'Isolated devices detected',
+                devices: isolatedDevices
+            });
+        }
+        
+        if (deviceCount === 0) {
+            issues.push({
+                type: 'no_devices',
+                severity: 'info',
+                message: 'No network devices in diagram'
+            });
+        }
+        
+        // If connected to backend, validate with server
+        if (this.state.connected) {
+            var topology = {
+                devices: devices,
+                connections: connections,
+                isolatedDevices: isolatedDevices
+            };
+            
+            this.sendMessage('validate-topology', {
+                topology: topology
+            }, function(response) {
+                if (response.success) {
+                    // Show backend validation results
+                    if (response.valid) {
+                        ArchiFlow.showAlert('Topology Validation Passed', 'success', 
+                            response.summary.deviceCount + ' devices, ' + 
+                            response.summary.connectionCount + ' connections validated');
+                    } else {
+                        // Show issues
+                        response.issues.forEach(function(issue) {
+                            ArchiFlow.showAlert(issue.message, 'error', 
+                                issue.devices ? issue.devices.join(' vs ') : issue.details);
+                        });
+                        
+                        // Show warnings
+                        response.warnings.forEach(function(warning) {
+                            ArchiFlow.showAlert(warning.message, 'warning', 
+                                warning.devices ? warning.devices.slice(0, 3).join(', ') : warning.details);
+                        });
+                    }
+                } else {
+                    ArchiFlow.showAlert('Validation Failed', 'error', 
+                        response.error || 'Unable to validate topology');
+                }
+            });
+        } else {
+            // Local validation only
+            if (issues.length === 0) {
+                this.showAlert('Topology validation passed (offline)', 'success', 
+                    deviceCount + ' devices, ' + connectionCount + ' connections');
+            } else {
+                issues.forEach(function(issue) {
+                    var details = issue.devices ? 
+                        issue.devices.slice(0, 3).join(', ') + 
+                        (issue.devices.length > 3 ? ' and ' + (issue.devices.length - 3) + ' more' : '') :
+                        '';
+                    ArchiFlow.showAlert(issue.message, issue.severity === 'warning' ? 'warning' : 'info', details);
+                });
+            }
+        }
+        
+        return issues;
+    };
+    
+    // Show alert history dialog
+    ArchiFlow.showAlertHistory = function() {
+        var content = document.createElement('div');
+        content.style.padding = '10px';
+        content.style.maxHeight = '400px';
+        content.style.overflowY = 'auto';
+        
+        var html = '<h4>🔔 Alert History</h4>';
+        
+        if (this.alerts.length === 0) {
+            html += '<p>No alerts recorded yet.</p>';
+        } else {
+            html += '<table style="width:100%; border-collapse: collapse;">';
+            html += '<tr style="background:#f0f0f0;">' +
+                '<th style="padding:5px; border:1px solid #ddd;">Time</th>' +
+                '<th style="padding:5px; border:1px solid #ddd;">Type</th>' +
+                '<th style="padding:5px; border:1px solid #ddd;">Message</th>' +
+                '</tr>';
+            
+            // Show last 20 alerts
+            var recentAlerts = this.alerts.slice(-20).reverse();
+            recentAlerts.forEach(function(alert) {
+                var time = new Date(alert.timestamp).toLocaleTimeString();
+                var typeColor = {
+                    'error': '#f44336',
+                    'warning': '#FF9800',
+                    'success': '#4CAF50',
+                    'info': '#2196F3'
+                }[alert.type] || '#999';
+                
+                html += '<tr>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + time + '</td>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' +
+                    '<span style="color:' + typeColor + ';">●</span> ' + alert.type + '</td>' +
+                    '<td style="padding:5px; border:1px solid #ddd; font-size:11px;">' + alert.message + '</td>' +
+                    '</tr>';
+            });
+            
+            html += '</table>';
+        }
+        
+        content.innerHTML = html;
+        
+        var dlg = new mxWindow('Alert History', content,
+            document.body.offsetWidth - 400, 250, 370, 450, true, true);
+        dlg.setClosable(true);
+        dlg.setVisible(true);
+    };
+    
+    // Device Property Panel System
+    ArchiFlow.propertyPanel = null;
+    ArchiFlow.selectedDevice = null;
+    
+    // Initialize property panel
+    ArchiFlow.initPropertyPanel = function() {
+        // Create property panel container
+        var panel = document.createElement('div');
+        panel.id = 'archiflow-property-panel';
+        panel.innerHTML = 
+            '<h3>🔧 Device Properties</h3>' +
+            '<div class="panel-content">' +
+            '  <label>Device Name:</label>' +
+            '  <input type="text" id="prop-device-name" placeholder="Enter device name">' +
+            '  <label>Device Type:</label>' +
+            '  <select id="prop-device-type">' +
+            '    <option value="router">Router</option>' +
+            '    <option value="switch">Switch</option>' +
+            '    <option value="firewall">Firewall</option>' +
+            '    <option value="server">Server</option>' +
+            '    <option value="loadbalancer">Load Balancer</option>' +
+            '    <option value="accesspoint">Access Point</option>' +
+            '  </select>' +
+            '  <label>Asset ID:</label>' +
+            '  <input type="text" id="prop-asset-id" readonly>' +
+            '  <label>IP Address:</label>' +
+            '  <input type="text" id="prop-ip-address" readonly>' +
+            '  <div class="ip-info" id="prop-ip-info"></div>' +
+            '  <label>VLAN:</label>' +
+            '  <input type="number" id="prop-vlan" placeholder="VLAN ID (1-4094)">' +
+            '  <label>Location:</label>' +
+            '  <input type="text" id="prop-location" placeholder="Physical location">' +
+            '  <label>Notes:</label>' +
+            '  <input type="text" id="prop-notes" placeholder="Additional notes">' +
+            '  <button onclick="ArchiFlow.allocateIPForSelected()">🔢 Allocate IP</button>' +
+            '  <button onclick="ArchiFlow.releaseIPForSelected()">🔓 Release IP</button>' +
+            '  <button onclick="ArchiFlow.saveDeviceProperties()">💾 Save Properties</button>' +
+            '  <button onclick="ArchiFlow.closePropertyPanel()" style="background: #999;">✖ Close</button>' +
+            '</div>';
+        
+        document.body.appendChild(panel);
+        this.propertyPanel = panel;
+        
+        // Add selection change listener
+        this.graph.getSelectionModel().addListener(mxEvent.CHANGE, function() {
+            ArchiFlow.updatePropertyPanel();
+        });
+        
+        console.log('[ArchiFlow] Property panel initialized');
+    };
+    
+    // Update property panel when selection changes
+    ArchiFlow.updatePropertyPanel = function() {
+        var cells = this.graph.getSelectionCells();
+        
+        if (cells.length === 1 && cells[0].archiflow) {
+            // Show panel for single device selection
+            this.selectedDevice = cells[0];
+            this.showPropertyPanel(cells[0]);
+        } else {
+            // Hide panel for multiple or no selection
+            this.selectedDevice = null;
+            this.closePropertyPanel();
+        }
+    };
+    
+    // Show property panel with device data
+    ArchiFlow.showPropertyPanel = function(cell) {
+        if (!this.propertyPanel) return;
+        
+        var data = cell.archiflow;
+        
+        // Populate fields
+        document.getElementById('prop-device-name').value = data.name || '';
+        document.getElementById('prop-device-type').value = data.type || 'router';
+        document.getElementById('prop-asset-id').value = data.assetId || '';
+        document.getElementById('prop-ip-address').value = data.ip || 'Not assigned';
+        document.getElementById('prop-vlan').value = data.vlan || '';
+        document.getElementById('prop-location').value = data.location || '';
+        document.getElementById('prop-notes').value = data.notes || '';
+        
+        // Update IP info
+        var ipInfo = document.getElementById('prop-ip-info');
+        if (data.ip) {
+            ipInfo.innerHTML = '✅ IP allocated from pool: ' + (data.poolId || 'Unknown');
+        } else {
+            ipInfo.innerHTML = '⚠️ No IP assigned. Click "Allocate IP" to assign one.';
+        }
+        
+        // Show panel
+        this.propertyPanel.className = 'active';
+    };
+    
+    // Close property panel
+    ArchiFlow.closePropertyPanel = function() {
+        if (this.propertyPanel) {
+            this.propertyPanel.className = '';
+        }
+    };
+    
+    // Save device properties
+    ArchiFlow.saveDeviceProperties = function() {
+        if (!this.selectedDevice) return;
+        
+        var name = document.getElementById('prop-device-name').value;
+        var type = document.getElementById('prop-device-type').value;
+        var vlan = document.getElementById('prop-vlan').value;
+        var location = document.getElementById('prop-location').value;
+        var notes = document.getElementById('prop-notes').value;
+        
+        // Update device metadata
+        this.selectedDevice.archiflow.name = name;
+        this.selectedDevice.archiflow.type = type;
+        this.selectedDevice.archiflow.vlan = vlan;
+        this.selectedDevice.archiflow.location = location;
+        this.selectedDevice.archiflow.notes = notes;
+        
+        // Update label
+        var newLabel = name + (this.selectedDevice.archiflow.ip ? '\n' + this.selectedDevice.archiflow.ip : '\n[No IP]');
+        
+        this.graph.model.beginUpdate();
+        try {
+            this.graph.model.setValue(this.selectedDevice, newLabel);
+            
+            // Update style based on type
+            var colors = {
+                router: '#4CAF50',
+                switch: '#2196F3',
+                firewall: '#F44336',
+                server: '#9C27B0',
+                loadbalancer: '#FF9800',
+                accesspoint: '#00BCD4'
+            };
+            
+            var newStyle = 'rounded=1;whiteSpace=wrap;html=1;fillColor=' + colors[type] + ';strokeColor=#000000;fontColor=#FFFFFF;fontStyle=1;';
+            this.graph.model.setStyle(this.selectedDevice, newStyle);
+        } finally {
+            this.graph.model.endUpdate();
+        }
+        
+        this.showAlert('Properties Saved', 'success', 'Device properties updated successfully');
+        this.logUserAction('device_properties_saved', {
+            device: name,
+            type: type
+        });
+    };
+    
+    // Allocate IP for selected device
+    ArchiFlow.allocateIPForSelected = function() {
+        if (this.selectedDevice) {
+            this.graph.setSelectionCell(this.selectedDevice);
+            this.allocateIP();
+        }
+    };
+    
+    // Release IP for selected device
+    ArchiFlow.releaseIPForSelected = function() {
+        if (!this.selectedDevice || !this.selectedDevice.archiflow.ip) {
+            this.showAlert('No IP to Release', 'warning', 'This device does not have an allocated IP');
+            return;
+        }
+        
+        var ip = this.selectedDevice.archiflow.ip;
+        var poolId = this.selectedDevice.archiflow.poolId;
+        
+        // Clear IP from device
+        this.graph.model.beginUpdate();
+        try {
+            this.selectedDevice.archiflow.ip = null;
+            this.selectedDevice.archiflow.poolId = null;
+            var newLabel = this.selectedDevice.archiflow.name + '\n[No IP]';
+            this.graph.model.setValue(this.selectedDevice, newLabel);
+        } finally {
+            this.graph.model.endUpdate();
+        }
+        
+        // Update property panel
+        this.updatePropertyPanel();
+        
+        // Send release request if connected
+        if (this.state.connected) {
+            this.sendMessage('release-ip', {
+                ip: ip,
+                poolId: poolId,
+                assetId: this.selectedDevice.archiflow.assetId
+            });
+        }
+        
+        this.showAlert('IP Released', 'success', 'IP ' + ip + ' has been released back to the pool');
+        this.logUserAction('ip_released', {
+            ip: ip,
+            device: this.selectedDevice.archiflow.name
+        });
+    };
+    
+    // Add CSS for alerts and property panel
+    var style = document.createElement('style');
+    style.innerHTML = 
+        '@keyframes slideIn {' +
+        '  from { transform: translateX(100%); opacity: 0; }' +
+        '  to { transform: translateX(0); opacity: 1; }' +
+        '}' +
+        '#archiflow-property-panel {' +
+        '  position: fixed;' +
+        '  right: 10px;' +
+        '  top: 80px;' +
+        '  width: 300px;' +
+        '  background: white;' +
+        '  border: 1px solid #ddd;' +
+        '  border-radius: 8px;' +
+        '  box-shadow: 0 2px 10px rgba(0,0,0,0.1);' +
+        '  z-index: 10000;' +
+        '  display: none;' +
+        '  font-family: Arial, sans-serif;' +
+        '}' +
+        '#archiflow-property-panel.active { display: block; }' +
+        '#archiflow-property-panel h3 {' +
+        '  margin: 0;' +
+        '  padding: 12px 15px;' +
+        '  background: #667eea;' +
+        '  color: white;' +
+        '  border-radius: 8px 8px 0 0;' +
+        '  font-size: 14px;' +
+        '}' +
+        '#archiflow-property-panel .panel-content {' +
+        '  padding: 15px;' +
+        '  max-height: 500px;' +
+        '  overflow-y: auto;' +
+        '}' +
+        '#archiflow-property-panel label {' +
+        '  display: block;' +
+        '  margin-top: 10px;' +
+        '  margin-bottom: 5px;' +
+        '  font-weight: bold;' +
+        '  font-size: 12px;' +
+        '  color: #555;' +
+        '}' +
+        '#archiflow-property-panel input, #archiflow-property-panel select {' +
+        '  width: 100%;' +
+        '  padding: 8px;' +
+        '  border: 1px solid #ddd;' +
+        '  border-radius: 4px;' +
+        '  font-size: 13px;' +
+        '  box-sizing: border-box;' +
+        '}' +
+        '#archiflow-property-panel button {' +
+        '  width: 100%;' +
+        '  padding: 10px;' +
+        '  margin-top: 10px;' +
+        '  background: #667eea;' +
+        '  color: white;' +
+        '  border: none;' +
+        '  border-radius: 4px;' +
+        '  cursor: pointer;' +
+        '  font-size: 13px;' +
+        '}' +
+        '#archiflow-property-panel button:hover {' +
+        '  background: #5a67d8;' +
+        '}' +
+        '#archiflow-property-panel .ip-info {' +
+        '  background: #f7f7f7;' +
+        '  padding: 10px;' +
+        '  border-radius: 4px;' +
+        '  margin-top: 10px;' +
+        '  font-size: 12px;' +
+        '}';
+    document.head.appendChild(style);
+    
+    // WebSocket reconnection configuration
+    ArchiFlow.reconnectConfig = {
+        maxAttempts: 10,
+        attempt: 0,
+        delay: 1000,
+        maxDelay: 30000,
+        reconnectTimer: null
+    };
+    
+    // WebSocket connection with auto-reconnection
+    ArchiFlow.connect = function() {
+        try {
+            // Clear any existing reconnection timer
+            if (this.reconnectConfig.reconnectTimer) {
+                clearTimeout(this.reconnectConfig.reconnectTimer);
+                this.reconnectConfig.reconnectTimer = null;
+            }
+            
+            // Close existing connection if any
+            if (this.state.ws && this.state.ws.readyState === WebSocket.OPEN) {
+                this.state.ws.close();
+            }
+            
+            console.log('[ArchiFlow] Connecting to WebSocket...');
+            this.state.ws = new WebSocket(this.config.wsUrl);
+            
+            this.state.ws.onopen = function() {
+                console.log('[ArchiFlow] WebSocket connected');
+                ArchiFlow.state.connected = true;
+                ArchiFlow.reconnectConfig.attempt = 0;
+                ArchiFlow.reconnectConfig.delay = 1000;
+                ArchiFlow.updateStatus();
+                ArchiFlow.loadIPPools();
+                ArchiFlow.showAlert('Connected to ArchiFlow Backend', 'success', 'Real-time sync enabled');
+            };
+            
+            this.state.ws.onclose = function(event) {
+                console.log('[ArchiFlow] WebSocket disconnected:', event.code, event.reason);
+                ArchiFlow.state.connected = false;
+                ArchiFlow.updateStatus();
+                
+                // Auto-reconnect unless manually closed
+                if (event.code !== 1000 && ArchiFlow.reconnectConfig.attempt < ArchiFlow.reconnectConfig.maxAttempts) {
+                    ArchiFlow.scheduleReconnect();
+                }
+            };
+            
+            this.state.ws.onerror = function(error) {
+                console.error('[ArchiFlow] WebSocket error:', error);
+                ArchiFlow.showAlert('Connection Error', 'warning', 'Will retry in ' + Math.round(ArchiFlow.reconnectConfig.delay / 1000) + ' seconds');
+            };
+            
+            this.state.ws.onmessage = function(event) {
+                try {
+                    var data = JSON.parse(event.data);
+                    ArchiFlow.handleMessage(data);
+                } catch (e) {
+                    console.error('[ArchiFlow] Failed to parse message:', e);
+                }
+            };
+        } catch (e) {
+            console.error('[ArchiFlow] Failed to connect:', e);
+            this.scheduleReconnect();
+        }
+    };
+    
+    // Schedule reconnection with exponential backoff
+    ArchiFlow.scheduleReconnect = function() {
+        this.reconnectConfig.attempt++;
+        
+        if (this.reconnectConfig.attempt > this.reconnectConfig.maxAttempts) {
+            console.log('[ArchiFlow] Max reconnection attempts reached');
+            this.showAlert('Connection Failed', 'error', 'Unable to connect to backend after ' + this.reconnectConfig.maxAttempts + ' attempts');
+            return;
+        }
+        
+        console.log('[ArchiFlow] Scheduling reconnect attempt ' + this.reconnectConfig.attempt + ' in ' + this.reconnectConfig.delay + 'ms');
+        
+        this.reconnectConfig.reconnectTimer = setTimeout(function() {
+            ArchiFlow.connect();
+        }, this.reconnectConfig.delay);
+        
+        // Exponential backoff with max delay
+        this.reconnectConfig.delay = Math.min(this.reconnectConfig.delay * 2, this.reconnectConfig.maxDelay);
+    };
+    
+    // Handle backend messages
+    ArchiFlow.handleMessage = function(data) {
+        if (data.type === 'welcome') {
+            console.log('[ArchiFlow] Server welcome:', data.message);
+            // Store client ID for collaboration
+            if (data.clientId) {
+                this.collaboration.clientId = data.clientId;
+                console.log('[ArchiFlow] Client ID:', data.clientId);
+            }
+            // Join diagram if one is loaded
+            if (this.currentDiagramId) {
+                this.joinDiagram(this.currentDiagramId);
+            }
+        } else if (data.type === 'diagram_users') {
+            // Update list of users in diagram
+            this.updateDiagramUsers(data.users);
+        } else if (data.type === 'user_joined') {
+            // Add new user to collaboration
+            this.addCollaborator(data.userId, data.userName, data.userColor);
+            this.showAlert('User Joined', 'info', data.userName + ' joined the diagram');
+        } else if (data.type === 'user_left') {
+            // Remove user from collaboration
+            this.removeCollaborator(data.userId);
+            this.showAlert('User Left', 'info', data.userName + ' left the diagram');
+        } else if (data.type === 'cursor_move') {
+            // Update remote user's cursor position
+            this.updateRemoteCursor(data.userId, data.x, data.y, data.userName, data.userColor);
+        } else if (data.type === 'selection_change') {
+            // Update remote user's selection
+            this.updateRemoteSelection(data.userId, data.selectedCells, data.userColor);
+        } else if (data.type === 'diagram_change') {
+            // Apply remote diagram changes
+            this.applyRemoteChange(data.change, data.sourceUserId);
+        } else if (data.type === 'diagram_saved') {
+            // Notify about diagram save by another user
+            this.showAlert('Diagram Saved', 'info', 'Diagram saved by ' + data.savedBy + ' (v' + data.version + ')');
+        } else if (data.id && this.state.pendingCallbacks.has(data.id)) {
+            var callback = this.state.pendingCallbacks.get(data.id);
+            this.state.pendingCallbacks.delete(data.id);
+            
+            if (data.error) {
+                callback({ success: false, error: data.error.message });
+            } else if (data.result && data.result.content) {
+                var content = JSON.parse(data.result.content[0].text);
+                callback(content);
+            }
+        }
+    };
+    
+    // Send message to backend
+    ArchiFlow.sendMessage = function(toolName, args, callback) {
+        if (!this.state.connected || !this.state.ws) {
+            console.error('[ArchiFlow] Not connected to backend');
+            if (callback) callback({ success: false, error: 'Not connected' });
+            return;
+        }
+        
+        var messageId = 'msg-' + Date.now() + '-' + Math.random();
+        
+        var message = {
+            jsonrpc: '2.0',
+            id: messageId,
+            method: 'tools/call',
+            params: {
+                name: toolName,
+                arguments: args
+            }
+        };
+        
+        if (callback) {
+            this.state.pendingCallbacks.set(messageId, callback);
+        }
+        
+        this.state.ws.send(JSON.stringify(message));
+    };
+    
+    // Load IP pools from backend
+    ArchiFlow.loadIPPools = function() {
+        this.sendMessage('get-ip-pools', {}, function(response) {
+            if (response.success) {
+                ArchiFlow.state.ipPools = response.pools || [];
+                console.log('[ArchiFlow] Loaded IP pools:', ArchiFlow.state.ipPools.length);
+            }
+        });
+    };
+    
+    // Reconnect function
+    ArchiFlow.reconnect = function() {
+        console.log('[ArchiFlow] Reconnecting...');
+        if (this.state.ws) {
+            this.state.ws.close();
+        }
+        this.connect();
+    };
+    
+    // Status indicator
+    ArchiFlow.updateStatus = function() {
+        var statusEl = document.getElementById('archiflow-status');
+        if (!statusEl) {
+            statusEl = document.createElement('div');
+            statusEl.id = 'archiflow-status';
+            statusEl.style.cssText = 'position:fixed;bottom:10px;right:10px;padding:5px 10px;background:#333;color:white;border-radius:5px;font-size:12px;z-index:10000;';
+            document.body.appendChild(statusEl);
+        }
+        statusEl.innerHTML = '🔌 ArchiFlow: ' + (this.state.connected ? '<span style="color:#0f0">Connected</span>' : '<span style="color:#f00">Disconnected</span>');
+    };
+    
+    // Add right-click context menu for ArchiFlow devices
+    ArchiFlow.initContextMenu = function() {
+        // Override the popup menu handler
+        var graph = this.graph;
+        var oldPopupMenuHandler = graph.popupMenuHandler.factoryMethod;
+        
+        graph.popupMenuHandler.factoryMethod = function(menu, cell, evt) {
+            // Call original handler first
+            oldPopupMenuHandler.apply(this, arguments);
+            
+            // Add ArchiFlow items if it's a network device
+            if (cell && cell.archiflow) {
+                menu.addSeparator();
+                
+                // Add device-specific menu items
+                menu.addItem('🔧 Device Properties', null, function() {
+                    graph.setSelectionCell(cell);
+                    ArchiFlow.updatePropertyPanel();
+                }, null, null, true);
+                
+                if (!cell.archiflow.ip) {
+                    menu.addItem('🔢 Allocate IP Address', null, function() {
+                        graph.setSelectionCell(cell);
+                        ArchiFlow.allocateIP();
+                    }, null, null, true);
+                } else {
+                    menu.addItem('🔓 Release IP Address', null, function() {
+                        graph.setSelectionCell(cell);
+                        ArchiFlow.releaseIPForSelected();
+                    }, null, null, true);
+                    
+                    menu.addItem('📋 Copy IP Address', null, function() {
+                        navigator.clipboard.writeText(cell.archiflow.ip).then(function() {
+                            ArchiFlow.showAlert('IP Copied', 'success', 'IP address ' + cell.archiflow.ip + ' copied to clipboard');
+                        });
+                    }, null, null, true);
+                }
+                
+                menu.addSeparator();
+                
+                // Add device type change submenu
+                var typeMenu = menu.addItem('🔄 Change Device Type', null, null, null, null, true);
+                var submenu = menu.createSubmenu(typeMenu);
+                
+                var deviceTypes = [
+                    { type: 'router', label: '🔀 Router', color: '#4CAF50' },
+                    { type: 'switch', label: '🔁 Switch', color: '#2196F3' },
+                    { type: 'firewall', label: '🔥 Firewall', color: '#F44336' },
+                    { type: 'server', label: '🖥️ Server', color: '#9C27B0' },
+                    { type: 'loadbalancer', label: '⚖️ Load Balancer', color: '#FF9800' },
+                    { type: 'accesspoint', label: '📡 Access Point', color: '#00BCD4' }
+                ];
+                
+                deviceTypes.forEach(function(dt) {
+                    menu.addItem(dt.label, null, function() {
+                        graph.model.beginUpdate();
+                        try {
+                            cell.archiflow.type = dt.type;
+                            var newStyle = 'rounded=1;whiteSpace=wrap;html=1;fillColor=' + dt.color + ';strokeColor=#000000;fontColor=#FFFFFF;fontStyle=1;';
+                            graph.model.setStyle(cell, newStyle);
+                        } finally {
+                            graph.model.endUpdate();
+                        }
+                        ArchiFlow.showAlert('Device Type Changed', 'success', 'Changed to ' + dt.label);
+                        ArchiFlow.updatePropertyPanel();
+                    }, submenu, null, cell.archiflow.type !== dt.type);
+                });
+                
+                menu.addSeparator();
+                
+                // Add duplicate option
+                menu.addItem('📑 Duplicate Device', null, function() {
+                    var newCell = graph.cloneCell(cell);
+                    newCell.geometry = cell.geometry.clone();
+                    newCell.geometry.x += 50;
+                    newCell.geometry.y += 50;
+                    
+                    // Clear IP for duplicate
+                    if (newCell.archiflow) {
+                        newCell.archiflow.ip = null;
+                        newCell.archiflow.poolId = null;
+                        newCell.archiflow.assetId = 'ASSET-' + Date.now();
+                        var label = (newCell.archiflow.name || 'Device') + ' (Copy)\n[No IP]';
+                        newCell.value = label;
+                    }
+                    
+                    graph.model.beginUpdate();
+                    try {
+                        graph.addCell(newCell);
+                        graph.setSelectionCell(newCell);
+                    } finally {
+                        graph.model.endUpdate();
+                    }
+                    
+                    ArchiFlow.showAlert('Device Duplicated', 'success', 'Created a copy of the device');
+                }, null, null, true);
+                
+                // Add delete option
+                menu.addItem('❌ Delete Device', null, function() {
+                    if (confirm('Are you sure you want to delete this device?')) {
+                        graph.removeCells([cell]);
+                        ArchiFlow.showAlert('Device Deleted', 'info', 'Device removed from diagram');
+                    }
+                }, null, null, true);
+            } else if (!cell) {
+                // Context menu for empty canvas
+                menu.addSeparator();
+                menu.addItem('➕ Add Network Device', null, function() {
+                    ArchiFlow.showDeviceDialog();
+                }, null, null, true);
+                
+                menu.addItem('📊 IP Pools Report', null, function() {
+                    ArchiFlow.showIPReport();
+                }, null, null, true);
+                
+                menu.addItem('🔍 Validate Topology', null, function() {
+                    ArchiFlow.validateTopology();
+                }, null, null, true);
+            }
+        };
+        
+        console.log('[ArchiFlow] Context menu initialized');
+    };
+    
+    // Auto-save functionality
+    ArchiFlow.autoSaveEnabled = false;
+    ArchiFlow.autoSaveInterval = 60000; // 1 minute default
+    ArchiFlow.autoSaveTimer = null;
+    ArchiFlow.hasUnsavedChanges = false;
+    ArchiFlow.currentDiagramId = null;
+    
+    ArchiFlow.enableAutoSave = function(interval) {
+        ArchiFlow.autoSaveEnabled = true;
+        ArchiFlow.autoSaveInterval = interval || 60000;
+        
+        // Clear existing timer
+        if (ArchiFlow.autoSaveTimer) {
+            clearInterval(ArchiFlow.autoSaveTimer);
+        }
+        
+        // Set up new timer
+        ArchiFlow.autoSaveTimer = setInterval(function() {
+            if (ArchiFlow.hasUnsavedChanges && ArchiFlow.currentDiagramId) {
+                ArchiFlow.doAutoSave();
+            }
+        }, ArchiFlow.autoSaveInterval);
+        
+        console.log('[ArchiFlow] Auto-save enabled with interval: ' + (ArchiFlow.autoSaveInterval / 1000) + ' seconds');
+    };
+    
+    ArchiFlow.doAutoSave = function() {
+        if (!ArchiFlow.currentDiagramId) {
+            console.log('[ArchiFlow] No diagram ID set, skipping auto-save');
+            return;
+        }
+        
+        var graph = ui.editor.graph;
+        var encoder = new mxCodec();
+        var node = encoder.encode(graph.getModel());
+        var xml = mxUtils.getXml(node);
+        
+        // Send auto-save
+        ArchiFlow.sendMessage('save-diagram', {
+            id: ArchiFlow.currentDiagramId,
+            name: 'Auto-saved Diagram',
+            xml: xml,
+            metadata: {},
+            description: 'Auto-saved at ' + new Date().toLocaleTimeString(),
+            userId: 'drawio-user'
+        }, function(result) {
+            if (result.success) {
+                ArchiFlow.hasUnsavedChanges = false;
+                console.log('[ArchiFlow] Auto-saved successfully at ' + new Date().toLocaleTimeString());
+                
+                // Show subtle notification
+                var statusDiv = document.getElementById('archiflow-autosave-status');
+                if (!statusDiv) {
+                    statusDiv = document.createElement('div');
+                    statusDiv.id = 'archiflow-autosave-status';
+                    statusDiv.style.cssText = 'position: fixed; bottom: 10px; right: 10px; padding: 5px 10px; background: #4CAF50; color: white; border-radius: 3px; font-size: 12px; z-index: 10000;';
+                    document.body.appendChild(statusDiv);
+                }
+                statusDiv.textContent = '✓ Auto-saved';
+                statusDiv.style.display = 'block';
+                setTimeout(function() {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        });
+    };
+    
+    // Track changes for auto-save
+    ArchiFlow.trackChanges = function() {
+        var graph = ui.editor.graph;
+        
+        graph.getModel().addListener(mxEvent.CHANGE, function() {
+            ArchiFlow.hasUnsavedChanges = true;
+        });
+    };
+    
+    // Collaboration Functions
+    ArchiFlow.joinDiagram = function(diagramId) {
+        if (!this.state.ws || !this.state.connected) return;
+        
+        this.state.ws.send(JSON.stringify({
+            type: 'join_diagram',
+            diagramId: diagramId
+        }));
+        
+        console.log('[ArchiFlow] Joined diagram:', diagramId);
+    };
+    
+    ArchiFlow.leaveDiagram = function(diagramId) {
+        if (!this.state.ws || !this.state.connected) return;
+        
+        this.state.ws.send(JSON.stringify({
+            type: 'leave_diagram',
+            diagramId: diagramId
+        }));
+    };
+    
+    ArchiFlow.updateDiagramUsers = function(users) {
+        console.log('[ArchiFlow] Users in diagram:', users);
+        
+        // Create or update user presence indicator
+        var presenceDiv = document.getElementById('archiflow-presence');
+        if (!presenceDiv) {
+            presenceDiv = document.createElement('div');
+            presenceDiv.id = 'archiflow-presence';
+            presenceDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10000; display: flex; gap: 5px;';
+            document.body.appendChild(presenceDiv);
+        }
+        
+        presenceDiv.innerHTML = '';
+        users.forEach(function(user) {
+            var avatar = document.createElement('div');
+            avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: ' + user.color + '; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; cursor: pointer;';
+            avatar.title = user.name;
+            avatar.textContent = user.name.charAt(0).toUpperCase();
+            presenceDiv.appendChild(avatar);
+        });
+    };
+    
+    ArchiFlow.addCollaborator = function(userId, userName, userColor) {
+        this.collaboration.users.set(userId, {
+            name: userName,
+            color: userColor
+        });
+        
+        // Update presence UI
+        this.updateDiagramUsers(Array.from(this.collaboration.users.values()));
+    };
+    
+    ArchiFlow.removeCollaborator = function(userId) {
+        this.collaboration.users.delete(userId);
+        
+        // Remove cursor and selection
+        var cursor = this.collaboration.cursors.get(userId);
+        if (cursor && cursor.parentNode) {
+            cursor.parentNode.removeChild(cursor);
+        }
+        this.collaboration.cursors.delete(userId);
+        
+        var selection = this.collaboration.selections.get(userId);
+        if (selection && selection.parentNode) {
+            selection.parentNode.removeChild(selection);
+        }
+        this.collaboration.selections.delete(userId);
+        
+        // Update presence UI
+        this.updateDiagramUsers(Array.from(this.collaboration.users.values()));
+    };
+    
+    ArchiFlow.updateRemoteCursor = function(userId, x, y, userName, userColor) {
+        var cursor = this.collaboration.cursors.get(userId);
+        
+        if (!cursor) {
+            // Create cursor element
+            cursor = document.createElement('div');
+            cursor.style.cssText = 'position: absolute; pointer-events: none; z-index: 9999; transition: all 0.1s ease;';
+            cursor.innerHTML = '<svg width="20" height="20" style="filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));">' +
+                '<path d="M0,0 L0,15 L4,11 L7,17 L10,16 L7,10 L12,10 Z" fill="' + userColor + '" stroke="white" stroke-width="1"/>' +
+                '</svg>' +
+                '<div style="position: absolute; top: 20px; left: 10px; background: ' + userColor + '; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; white-space: nowrap;">' + userName + '</div>';
+            
+            // Add to graph container
+            var container = ui.editor.graph.container;
+            container.appendChild(cursor);
+            this.collaboration.cursors.set(userId, cursor);
+        }
+        
+        // Update position (convert graph coordinates to screen coordinates)
+        var graph = ui.editor.graph;
+        var scale = graph.view.scale;
+        var translate = graph.view.translate;
+        
+        cursor.style.left = (x * scale + translate.x * scale) + 'px';
+        cursor.style.top = (y * scale + translate.y * scale) + 'px';
+    };
+    
+    ArchiFlow.updateRemoteSelection = function(userId, selectedCells, userColor) {
+        // Implementation for showing other users' selections
+        // This would highlight the cells selected by other users
+        console.log('[ArchiFlow] User', userId, 'selected cells:', selectedCells);
+    };
+    
+    ArchiFlow.applyRemoteChange = function(change, sourceUserId) {
+        // Apply changes from other users to the diagram
+        console.log('[ArchiFlow] Applying change from user:', sourceUserId, change);
+        
+        // This would parse and apply the change to the graph
+        // For now, we'll just log it
+    };
+    
+    // Track local mouse movement and send to others
+    ArchiFlow.initCursorTracking = function() {
+        var graph = ui.editor.graph;
+        var container = graph.container;
+        var lastSentTime = 0;
+        
+        container.addEventListener('mousemove', function(evt) {
+            if (!ArchiFlow.state.connected || !ArchiFlow.currentDiagramId) return;
+            
+            // Throttle cursor updates to 10 per second
+            var now = Date.now();
+            if (now - lastSentTime < 100) return;
+            lastSentTime = now;
+            
+            // Get graph coordinates
+            var pt = graph.getPointForEvent(evt);
+            
+            // Send cursor position
+            ArchiFlow.state.ws.send(JSON.stringify({
+                type: 'cursor_move',
+                x: pt.x,
+                y: pt.y
+            }));
+        });
+    };
+    
+    // Track selection changes
+    ArchiFlow.initSelectionTracking = function() {
+        var graph = ui.editor.graph;
+        
+        graph.getSelectionModel().addListener(mxEvent.CHANGE, function() {
+            if (!ArchiFlow.state.connected || !ArchiFlow.currentDiagramId) return;
+            
+            var cells = graph.getSelectionCells();
+            var cellIds = cells.map(function(cell) { return cell.id; });
+            
+            // Send selection update
+            ArchiFlow.state.ws.send(JSON.stringify({
+                type: 'selection_change',
+                selectedCells: cellIds
+            }));
+        });
+    };
+    
+    // Track diagram changes and broadcast them
+    ArchiFlow.initChangeSync = function() {
+        var graph = ui.editor.graph;
+        
+        graph.getModel().addListener(mxEvent.CHANGE, function(sender, evt) {
+            if (!ArchiFlow.state.connected || !ArchiFlow.currentDiagramId) return;
+            
+            var changes = evt.getProperty('changes');
+            if (changes && changes.length > 0) {
+                // Send changes to other users
+                ArchiFlow.state.ws.send(JSON.stringify({
+                    type: 'diagram_change',
+                    change: {
+                        type: 'model_change',
+                        changes: changes.map(function(c) {
+                            return {
+                                type: c.constructor.name,
+                                data: c
+                            };
+                        })
+                    }
+                }));
+            }
+        });
+    };
+    
+    // Initialize all systems after 1 second
+    setTimeout(function() {
+        ArchiFlow.connect();
+        ArchiFlow.updateStatus();
+        ArchiFlow.initChangeTracking();
+        ArchiFlow.initAlertSystem();
+        ArchiFlow.initPropertyPanel();
+        ArchiFlow.initContextMenu();
+        ArchiFlow.trackChanges();
+        
+        // Initialize collaboration features
+        ArchiFlow.initCursorTracking();
+        ArchiFlow.initSelectionTracking();
+        ArchiFlow.initChangeSync();
+        
+        // Enable auto-save by default (every 60 seconds)
+        ArchiFlow.enableAutoSave(60000);
+    }, 1000);
+    
+    console.log('[ArchiFlow] Plugin ready! Check Extras menu for ArchiFlow options.');
+});

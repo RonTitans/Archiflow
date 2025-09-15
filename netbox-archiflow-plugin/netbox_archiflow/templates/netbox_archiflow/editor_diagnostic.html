@@ -1,0 +1,147 @@
+{% extends 'netbox_archiflow/plugin_base.html' %}
+
+{% block title %}Diagnostic - ArchiFlow{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active">Diagnostic</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>ArchiFlow Network Diagram Editor - Diagnostic Mode</h3>
+            </div>
+            <div class="card-body">
+                <div id="status" class="alert alert-info">
+                    <h4>Status Log:</h4>
+                    <ul id="status-log">
+                        <li>Page loaded...</li>
+                    </ul>
+                </div>
+                
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="loadDrawio()">Load Draw.io</button>
+                    <button class="btn btn-success" onclick="injectPlugin()">Inject Plugin</button>
+                    <button class="btn btn-info" onclick="checkPlugin()">Check Plugin Status</button>
+                </div>
+                
+                <div class="mt-3" style="height: 60vh;">
+                    <iframe 
+                        id="archiflow-frame" 
+                        src="about:blank"
+                        style="width: 100%; height: 100%; border: 1px solid #ccc;">
+                    </iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function addLog(message) {
+    const log = document.getElementById('status-log');
+    const li = document.createElement('li');
+    li.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+    log.appendChild(li);
+    console.log('ArchiFlow:', message);
+}
+
+addLog('Diagnostic page initialized');
+
+function loadDrawio() {
+    addLog('Loading Draw.io with ArchiFlow plugin...');
+    const iframe = document.getElementById('archiflow-frame');
+    // Load Draw.io with the plugin parameter directly in the URL
+    iframe.src = 'http://localhost:8081/?embed=1&p=plugins/archiflow-complete.js';
+    
+    iframe.onload = function() {
+        addLog('Draw.io iframe loaded');
+        // Check plugin status after delay
+        setTimeout(function() {
+            checkPlugin();
+        }, 3000);
+    };
+}
+
+function injectPlugin() {
+    addLog('Attempting to inject ArchiFlow plugin...');
+    const iframe = document.getElementById('archiflow-frame');
+    
+    try {
+        const iframeWindow = iframe.contentWindow;
+        addLog('Got iframe window reference');
+        
+        // Try to fetch the plugin
+        fetch('http://localhost:8081/plugins/archiflow-complete.js')
+            .then(response => {
+                addLog('Plugin fetch status: ' + response.status);
+                return response.text();
+            })
+            .then(scriptContent => {
+                addLog('Plugin script loaded, size: ' + scriptContent.length + ' bytes');
+                
+                // Try direct eval
+                try {
+                    iframeWindow.eval(scriptContent);
+                    addLog('SUCCESS: Plugin injected via eval!');
+                } catch (e) {
+                    addLog('CORS blocked eval, trying script tag...');
+                    
+                    // Try script tag
+                    const script = iframeWindow.document.createElement('script');
+                    script.textContent = scriptContent;
+                    iframeWindow.document.head.appendChild(script);
+                    addLog('Plugin injected via script tag');
+                }
+            })
+            .catch(error => {
+                addLog('ERROR: ' + error.message);
+            });
+    } catch (e) {
+        addLog('ERROR: ' + e.message);
+    }
+}
+
+function checkPlugin() {
+    addLog('Checking plugin status...');
+    const iframe = document.getElementById('archiflow-frame');
+    
+    try {
+        const iframeWindow = iframe.contentWindow;
+        
+        if (iframeWindow.ArchiFlow) {
+            addLog('SUCCESS: ArchiFlow plugin is loaded!');
+            addLog('Plugin version: ' + iframeWindow.ArchiFlow.version);
+            
+            // Try to call a plugin function
+            if (iframeWindow.ArchiFlow.init) {
+                addLog('Plugin has init function');
+            }
+            if (iframeWindow.ArchiFlow.devices) {
+                addLog('Plugin has devices: ' + Object.keys(iframeWindow.ArchiFlow.devices).length);
+            }
+        } else {
+            addLog('ArchiFlow plugin NOT found in iframe');
+            
+            // Check if Draw is available
+            if (iframeWindow.Draw) {
+                addLog('Draw.io is loaded');
+            } else {
+                addLog('Draw.io is NOT loaded yet');
+            }
+        }
+    } catch (e) {
+        addLog('Cannot access iframe (CORS): ' + e.message);
+    }
+}
+
+// Auto-load on page ready
+window.addEventListener('load', function() {
+    addLog('Window fully loaded');
+    // Auto-load Draw.io after 1 second
+    setTimeout(loadDrawio, 1000);
+});
+</script>
+{% endblock %}

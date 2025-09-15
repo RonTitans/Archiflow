@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: archiflow-db
+    environment:
+      POSTGRES_DB: archiflow
+      POSTGRES_USER: archiflow_user
+      POSTGRES_PASSWORD: archiflow_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - archiflow-db-data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archiflow_user -d archiflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - archiflow-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: archiflow-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@archiflow.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - archiflow-network
+
+networks:
+  archiflow-network:
+    driver: bridge
+
+volumes:
+  archiflow-db-data:
+    name: archiflow-db-data
+  pgadmin-data:
+    name: archiflow-pgadmin-data

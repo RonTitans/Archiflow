@@ -1,0 +1,2846 @@
+
+
+
+
+
+<!DOCTYPE html>
+<html
+  lang="en"
+  data-netbox-url-name="diagram_editor"
+  data-netbox-base-path=""
+  
+    
+      data-netbox-color-mode="unset"
+    
+  
+  >
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width, viewport-fit=cover"
+    />
+
+    
+    <title> | NetBox</title>
+
+    <script
+      type="text/javascript"
+      src="/static/setmode.js"
+      onerror="window.location='/media-failure/?filename=setmode.js'">
+    </script>
+
+    <script type="text/javascript">
+      (function () {
+          initMode()
+      })();
+      window.CSRF_TOKEN = "sl8FG2vpIdmyLcycK7YC78xOXljc03AqSFsQwOdtY8qkHeB7fh4mzh8I2WxMUQRL";
+    </script>
+
+    
+    <link
+      rel="stylesheet"
+      href="/static/netbox-external.css?v=3.7.8"
+      onerror="window.location='/media-failure/?filename=netbox-external.css'"
+    />
+    <link
+      rel="stylesheet"
+      href="/static/netbox-light.css?v=3.7.8"
+      onerror="window.location='/media-failure/?filename=netbox-light.css'"
+    />
+    <link
+      rel="stylesheet"
+      href="/static/netbox-dark.css?v=3.7.8"
+      onerror="window.location='/media-failure/?filename=netbox-dark.css'"
+    />
+    <link
+      rel="stylesheet"
+      media="print"
+      href="/static/netbox-print.css?v=3.7.8"
+      onerror="window.location='/media-failure/?filename=netbox-print.css'"
+    />
+    <link rel="icon" type="image/png" href="/static/netbox.ico" />
+    <link rel="apple-touch-icon" type="image/png" href="/static/netbox_touch-icon-180.png" />
+
+    
+    <script
+      type="text/javascript"
+      src="/static/netbox.js?v=3.7.8"
+      onerror="window.location='/media-failure/?filename=netbox.js'">
+    </script>
+
+    
+    
+  </head>
+
+  <body>
+    <script type="text/javascript">
+      function checkSideNav() {
+        // Check localStorage to see if the sidebar should be pinned.
+        var sideNavRaw = localStorage.getItem('netbox-sidenav');
+        // Determine if the device has a small screeen. This media query is equivalent to
+        // bootstrap's media-breakpoint-down(lg) breakpoint mixin, which is what the sidenav's
+        // CSS uses.
+        var isSmallScreen = window.matchMedia('(max-width: 991.98px)').matches;
+        if (typeof sideNavRaw === 'string') {
+          var sideNavState = JSON.parse(sideNavRaw);
+          if (sideNavState.pinned === true && !isSmallScreen) {
+            // If the sidebar should be pinned and this is not a small screen, set the appropriate
+            // body attributes prior to the rest of the content rendering. This prevents
+            // jumpy/glitchy behavior on page reloads.
+            document.body.setAttribute('data-sidenav-pinned', '');
+            document.body.setAttribute('data-sidenav-show', '');
+            document.body.removeAttribute('data-sidenav-hidden');
+          } else {
+            document.body.removeAttribute('data-sidenav-pinned');
+            document.body.setAttribute('data-sidenav-hidden', '');
+          }
+        }
+      }
+      window.addEventListener('resize', function(){ checkSideNav() });
+      checkSideNav();
+    </script>
+
+    
+    
+
+  <div class="container-fluid px-0">
+    <main class="layout">
+    
+    
+
+
+
+<nav class="sidenav noprint" id="sidenav" data-simplebar>
+  <div class="sidenav-header">
+
+  
+
+    
+    <a class="sidenav-brand" href="/">
+      <img src="/static/netbox_logo.svg" height="48" class="sidenav-brand-img" alt="NetBox Logo">
+    </a>
+
+    
+    <a class="sidenav-brand-icon" href="/">
+      <img src="/static/netbox_icon.svg" height="32" class="sidenav-brand-img" alt="NetBox Logo">
+    </a>
+
+    
+    <button class="btn btn-sm btn-ghost-primary sidenav-toggle">
+      <div class="sidenav-toggle-icon">
+        <i class="mdi mdi-pin"></i>
+      </div>
+    </button>
+
+  </div>
+
+  <div class="sidenav-inner h-100 mb-auto">
+
+    
+    <div class="collapse sidenav-collapse pb-4">
+
+      
+      
+
+<ul class="navbar-nav">
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuOrganization" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuOrganization">
+       <i class="mdi mdi-domain"></i>
+       <span class="nav-link-text">Organization</span>
+      </a>
+      
+      <div class="collapse" id="menuOrganization">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Sites</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/sites/" class="nav-link">Sites</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/sites/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/sites/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/regions/" class="nav-link">Regions</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/regions/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/regions/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/site-groups/" class="nav-link">Site Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/site-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/site-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/locations/" class="nav-link">Locations</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/locations/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/locations/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Racks</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/racks/" class="nav-link">Racks</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/racks/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/racks/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/rack-roles/" class="nav-link">Rack Roles</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/rack-roles/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/rack-roles/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/rack-reservations/" class="nav-link">Reservations</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/rack-reservations/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/rack-reservations/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/dcim/rack-elevations/" class="nav-link">Elevations</a>
+                
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Tenancy</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/tenancy/tenants/" class="nav-link">Tenants</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/tenancy/tenants/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/tenancy/tenants/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/tenancy/tenant-groups/" class="nav-link">Tenant Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/tenancy/tenant-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/tenancy/tenant-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Contacts</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/tenancy/contacts/" class="nav-link">Contacts</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/tenancy/contacts/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/tenancy/contacts/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/tenancy/contact-groups/" class="nav-link">Contact Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/tenancy/contact-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/tenancy/contact-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/tenancy/contact-roles/" class="nav-link">Contact Roles</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/tenancy/contact-roles/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/tenancy/contact-roles/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/tenancy/contact-assignments/" class="nav-link">Contact Assignments</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/tenancy/contact-assignments/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuDevices" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuDevices">
+       <i class="mdi mdi-server"></i>
+       <span class="nav-link-text">Devices</span>
+      </a>
+      
+      <div class="collapse" id="menuDevices">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Devices</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/devices/" class="nav-link">Devices</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/devices/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/devices/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/modules/" class="nav-link">Modules</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/modules/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/modules/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/device-roles/" class="nav-link">Device Roles</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/device-roles/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/device-roles/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/platforms/" class="nav-link">Platforms</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/platforms/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/platforms/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/virtual-chassis/" class="nav-link">Virtual Chassis</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/virtual-chassis/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/virtual-chassis/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/virtual-device-contexts/" class="nav-link">Virtual Device Contexts</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/virtual-device-contexts/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/virtual-device-contexts/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Device Types</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/device-types/" class="nav-link">Device Types</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/device-types/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/device-types/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/module-types/" class="nav-link">Module Types</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/module-types/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/module-types/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/manufacturers/" class="nav-link">Manufacturers</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/manufacturers/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/manufacturers/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Device Components</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/interfaces/" class="nav-link">Interfaces</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/interfaces/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/interfaces/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/front-ports/" class="nav-link">Front Ports</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/front-ports/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/front-ports/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/rear-ports/" class="nav-link">Rear Ports</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/rear-ports/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/rear-ports/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/console-ports/" class="nav-link">Console Ports</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/console-ports/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/console-ports/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/console-server-ports/" class="nav-link">Console Server Ports</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/console-server-ports/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/console-server-ports/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/power-ports/" class="nav-link">Power Ports</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/power-ports/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/power-ports/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/power-outlets/" class="nav-link">Power Outlets</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/power-outlets/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/power-outlets/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/module-bays/" class="nav-link">Module Bays</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/module-bays/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/module-bays/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/device-bays/" class="nav-link">Device Bays</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/device-bays/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/device-bays/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/inventory-items/" class="nav-link">Inventory Items</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/inventory-items/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/inventory-items/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/inventory-item-roles/" class="nav-link">Inventory Item Roles</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/inventory-item-roles/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/inventory-item-roles/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuConnections" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuConnections">
+       <i class="mdi mdi-connection"></i>
+       <span class="nav-link-text">Connections</span>
+      </a>
+      
+      <div class="collapse" id="menuConnections">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Connections</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/cables/" class="nav-link">Cables</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/cables/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/cables/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/wireless/wireless-links/" class="nav-link">Wireless Links</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/wireless/wireless-links/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/wireless/wireless-links/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/dcim/interface-connections/" class="nav-link">Interface Connections</a>
+                
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/dcim/console-connections/" class="nav-link">Console Connections</a>
+                
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/dcim/power-connections/" class="nav-link">Power Connections</a>
+                
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuWireless" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuWireless">
+       <i class="mdi mdi-wifi"></i>
+       <span class="nav-link-text">Wireless</span>
+      </a>
+      
+      <div class="collapse" id="menuWireless">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Wireless</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/wireless/wireless-lans/" class="nav-link">Wireless LANs</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/wireless/wireless-lans/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/wireless/wireless-lans/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/wireless/wireless-lan-groups/" class="nav-link">Wireless LAN Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/wireless/wireless-lan-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/wireless/wireless-lan-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuIPAM" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuIPAM">
+       <i class="mdi mdi-counter"></i>
+       <span class="nav-link-text">IPAM</span>
+      </a>
+      
+      <div class="collapse" id="menuIPAM">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">IP Addresses</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/ip-addresses/" class="nav-link">IP Addresses</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/ip-addresses/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/ip-addresses/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/ip-ranges/" class="nav-link">IP Ranges</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/ip-ranges/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/ip-ranges/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Prefixes</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/prefixes/" class="nav-link">Prefixes</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/prefixes/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/prefixes/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/roles/" class="nav-link">Prefix &amp; VLAN Roles</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/roles/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/roles/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">ASNs</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/asn-ranges/" class="nav-link">ASN Ranges</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/asn-ranges/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/asn-ranges/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/asns/" class="nav-link">ASNs</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/asns/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/asns/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Aggregates</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/aggregates/" class="nav-link">Aggregates</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/aggregates/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/aggregates/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/rirs/" class="nav-link">RIRs</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/rirs/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/rirs/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">VRFs</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/vrfs/" class="nav-link">VRFs</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/vrfs/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/vrfs/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/route-targets/" class="nav-link">Route Targets</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/route-targets/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/route-targets/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">VLANs</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/vlans/" class="nav-link">VLANs</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/vlans/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/vlans/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/vlan-groups/" class="nav-link">VLAN Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/vlan-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/vlan-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Other</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/fhrp-groups/" class="nav-link">FHRP Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/fhrp-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/fhrp-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/service-templates/" class="nav-link">Service Templates</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/service-templates/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/service-templates/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/ipam/services/" class="nav-link">Services</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/ipam/services/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/ipam/services/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuVPN" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuVPN">
+       <i class="mdi mdi-graph-outline"></i>
+       <span class="nav-link-text">VPN</span>
+      </a>
+      
+      <div class="collapse" id="menuVPN">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Tunnels</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/tunnels/" class="nav-link">Tunnels</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/tunnels/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/tunnels/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/tunnel-groups/" class="nav-link">Tunnel Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/tunnel-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/tunnel-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/tunnel-terminations/" class="nav-link">Tunnel Terminations</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/tunnel-terminations/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/tunnel-terminations/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">L2VPNs</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/l2vpns/" class="nav-link">L2VPNs</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/l2vpns/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/l2vpns/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/l2vpn-terminations/" class="nav-link">Terminations</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/l2vpn-terminations/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/l2vpn-terminations/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Security</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/ike-proposals/" class="nav-link">IKE Proposals</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/ike-proposals/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/ike-proposals/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/ike-policies/" class="nav-link">IKE Policies</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/ike-policies/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/ike-policies/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/ipsec-proposals/" class="nav-link">IPSec Proposals</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/ipsec-proposals/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/ipsec-proposals/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/ipsec-policies/" class="nav-link">IPSec Policies</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/ipsec-policies/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/ipsec-policies/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/vpn/ipsec-profiles/" class="nav-link">IPSec Profiles</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/vpn/ipsec-profiles/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/vpn/ipsec-profiles/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuVirtualization" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuVirtualization">
+       <i class="mdi mdi-monitor"></i>
+       <span class="nav-link-text">Virtualization</span>
+      </a>
+      
+      <div class="collapse" id="menuVirtualization">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Virtual Machines</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/virtualization/virtual-machines/" class="nav-link">Virtual Machines</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/virtualization/virtual-machines/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/virtualization/virtual-machines/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/virtualization/interfaces/" class="nav-link">Interfaces</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/virtualization/interfaces/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/virtualization/interfaces/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/virtualization/disks/" class="nav-link">Virtual Disks</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/virtualization/disks/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/virtualization/disks/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Clusters</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/virtualization/clusters/" class="nav-link">Clusters</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/virtualization/clusters/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/virtualization/clusters/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/virtualization/cluster-types/" class="nav-link">Cluster Types</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/virtualization/cluster-types/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/virtualization/cluster-types/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/virtualization/cluster-groups/" class="nav-link">Cluster Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/virtualization/cluster-groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/virtualization/cluster-groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuCircuits" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuCircuits">
+       <i class="mdi mdi-transit-connection-variant"></i>
+       <span class="nav-link-text">Circuits</span>
+      </a>
+      
+      <div class="collapse" id="menuCircuits">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Circuits</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/circuits/circuits/" class="nav-link">Circuits</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/circuits/circuits/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/circuits/circuits/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/circuits/circuit-types/" class="nav-link">Circuit Types</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/circuits/circuit-types/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/circuits/circuit-types/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Providers</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/circuits/providers/" class="nav-link">Providers</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/circuits/providers/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/circuits/providers/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/circuits/provider-accounts/" class="nav-link">Provider Accounts</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/circuits/provider-accounts/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/circuits/provider-accounts/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/circuits/provider-networks/" class="nav-link">Provider Networks</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/circuits/provider-networks/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/circuits/provider-networks/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuPower" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuPower">
+       <i class="mdi mdi-flash"></i>
+       <span class="nav-link-text">Power</span>
+      </a>
+      
+      <div class="collapse" id="menuPower">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Power</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/power-feeds/" class="nav-link">Power Feeds</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/power-feeds/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/power-feeds/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/dcim/power-panels/" class="nav-link">Power Panels</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/dcim/power-panels/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/dcim/power-panels/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuProvisioning" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuProvisioning">
+       <i class="mdi mdi-file-document-multiple-outline"></i>
+       <span class="nav-link-text">Provisioning</span>
+      </a>
+      
+      <div class="collapse" id="menuProvisioning">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Configurations</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/extras/config-contexts/" class="nav-link">Config Contexts</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/config-contexts/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/config-templates/" class="nav-link">Config Templates</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/config-templates/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuCustomization" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuCustomization">
+       <i class="mdi mdi-toolbox-outline"></i>
+       <span class="nav-link-text">Customization</span>
+      </a>
+      
+      <div class="collapse" id="menuCustomization">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Customization</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/extras/custom-fields/" class="nav-link">Custom Fields</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/custom-fields/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/custom-fields/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/custom-field-choices/" class="nav-link">Custom Field Choices</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/custom-field-choices/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/custom-field-choices/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/custom-links/" class="nav-link">Custom Links</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/custom-links/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/custom-links/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/export-templates/" class="nav-link">Export Templates</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/export-templates/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/export-templates/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/saved-filters/" class="nav-link">Saved Filters</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/saved-filters/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/saved-filters/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/tags/" class="nav-link">Tags</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/tags/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/tags/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/extras/image-attachments/" class="nav-link">Image Attachments</a>
+                
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Reports &amp; Scripts</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/extras/reports/" class="nav-link">Reports</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/reports/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/scripts/" class="nav-link">Scripts</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/scripts/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuOperations" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuOperations">
+       <i class="mdi mdi-cogs"></i>
+       <span class="nav-link-text">Operations</span>
+      </a>
+      
+      <div class="collapse" id="menuOperations">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Integrations</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/core/data-sources/" class="nav-link">Data Sources</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/core/data-sources/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/core/data-sources/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/event-rules/" class="nav-link">Event Rules</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/event-rules/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/event-rules/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/extras/webhooks/" class="nav-link">Webhooks</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/extras/webhooks/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/webhooks/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Jobs</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/core/jobs/" class="nav-link">Jobs</a>
+                
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Logging</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/extras/journal-entries/" class="nav-link">Journal Entries</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/extras/journal-entries/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/extras/changelog/" class="nav-link">Change Log</a>
+                
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuAdmin" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuAdmin">
+       <i class="mdi mdi-account-multiple"></i>
+       <span class="nav-link-text">Admin</span>
+      </a>
+      
+      <div class="collapse" id="menuAdmin">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Authentication</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/users/users/" class="nav-link">Users</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/users/users/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/users/users/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/users/groups/" class="nav-link">Groups</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/users/groups/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/users/groups/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/users/tokens/" class="nav-link">API Tokens</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/users/tokens/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                      <a class="btn btn-sm btn-cyan lh-1" href="/users/tokens/import/" title="Import">
+                        <i class="mdi mdi-upload"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item">
+                
+                <a href="/users/permissions/" class="nav-link">Permissions</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/users/permissions/add/" title="Add">
+                        <i class="mdi mdi-plus-thick"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">Configuration</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/core/config/" class="nav-link">Current Config</a>
+                
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/core/config-revisions/" class="nav-link">Config Revisions</a>
+                
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+    <li class="nav-item">
+      
+      <a class="nav-link" href="#menuPlugins" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuPlugins">
+       <i class="mdi mdi-puzzle"></i>
+       <span class="nav-link-text">Plugins</span>
+      </a>
+      
+      <div class="collapse" id="menuPlugins">
+        <ul class="nav nav-sm flex-column">
+          
+            
+            <li class="nav-item">
+              <div class="nav-group-header">
+                <span class="nav-group-label">ArchiFlow Network Diagrams</span>
+              </div>
+            </li>
+            
+            
+              <li class="nav-item">
+                
+                <a href="/plugins/archiflow/" class="nav-link">Network Diagrams</a>
+                
+                
+                  <div class="btn-group px-2">
+                    
+                      <a class="btn btn-sm btn-green lh-1" href="/plugins/archiflow/create/" title="New Diagram">
+                        <i class="mdi mdi-plus"></i>
+                      </a>
+                    
+                  </div>
+                
+              </li>
+            
+              <li class="nav-item no-buttons">
+                
+                <a href="/plugins/archiflow/editor/" class="nav-link">Diagram Editor</a>
+                
+                
+              </li>
+            
+          
+        </ul>
+      </div>
+    </li>
+  
+</ul>
+
+
+    </div>
+
+    
+    <div class="profile-button-container">
+      
+
+  <div class="dropdown profile-button">
+    <button type="button" aria-expanded="false" data-bs-toggle="dropdown" class="btn btn-outline-secondary dropdown-toggle w-100">
+      <i class="mdi mdi-account"></i>
+      <span id="navbar_user">admin</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li>
+        <button type="button" class="dropdown-item color-mode-toggle">
+          <i class="color-mode-icon mdi mdi-lightbulb"></i>
+          <span class="color-mode-text">Dark Mode</span>
+        </button>
+      </li>
+      <li>
+        
+          <a class="dropdown-item" href="/admin/">
+            <i class="mdi mdi-cog"></i> Admin
+          </a>
+        
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/profile/">
+          <i class="mdi mdi-account"></i> Profile
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/bookmarks/">
+          <i class="mdi mdi-bookmark"></i> Bookmarks
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/preferences/">
+          <i class="mdi mdi-wrench"></i> Preferences
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/api-tokens/">
+          <i class="mdi mdi-key"></i> API Tokens
+        </a>
+      </li>
+      <li><hr class="dropdown-divider" /></li>
+      <li>
+        <a class="dropdown-item" href="/logout/">
+          <i class="mdi mdi-logout-variant"></i> Log Out
+        </a>
+      </li>
+    </ul>
+  </div>
+
+
+    </div>
+  </div>
+</nav>
+
+
+      
+      <div class="content-container" tabindex="-2">
+
+        
+        <div class="p-2 printonly">
+          <img src="/static/netbox_logo.svg" alt="NetBox logo" width="200px" />
+        </div>
+
+        
+        <nav class="navbar navbar-light sticky-top flex-md-nowrap p-1 mb-3 search container-fluid noprint">
+
+            
+            <div class="nav-mobile">
+              <div class="nav-mobile-top">
+                <a class="sidebar-logo p-2 d-block" href="/">
+                  <img src="/static/netbox_logo.svg" alt="NetBox logo" height="40" />
+                </a>
+                <button type="button" aria-label="Toggle Navigation" class="navbar-toggler sidenav-toggle-mobile">
+                  <span class="navbar-toggler-icon"></span>
+                </button>
+              </div>
+              <div class="d-flex my-1 flex-grow-1 justify-content-center w-100">
+                <form class="input-group" action="/search/" method="get">
+  <input name="q" type="text" aria-label="Search" placeholder="Search" class="form-control" />
+  <button class="btn btn-primary" type="submit">
+    <i class="mdi mdi-magnify"></i>
+  </button>
+</form>
+
+              </div>
+            </div>
+
+            
+            <div class="row search-container">
+
+              
+              <div class="col-3 d-flex flex-grow-1 ps-0"></div>
+
+              
+              <div class="col-6 d-flex flex-grow-1 justify-content-center">
+                <form class="input-group" action="/search/" method="get">
+  <input name="q" type="text" aria-label="Search" placeholder="Search" class="form-control" />
+  <button class="btn btn-primary" type="submit">
+    <i class="mdi mdi-magnify"></i>
+  </button>
+</form>
+
+              </div>
+
+              
+              <div class="col-3 d-flex flex-grow-1 pe-0 justify-content-end">
+                
+
+  <div class="dropdown profile-button">
+    <button type="button" aria-expanded="false" data-bs-toggle="dropdown" class="btn btn-outline-secondary dropdown-toggle w-100">
+      <i class="mdi mdi-account"></i>
+      <span id="navbar_user">admin</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li>
+        <button type="button" class="dropdown-item color-mode-toggle">
+          <i class="color-mode-icon mdi mdi-lightbulb"></i>
+          <span class="color-mode-text">Dark Mode</span>
+        </button>
+      </li>
+      <li>
+        
+          <a class="dropdown-item" href="/admin/">
+            <i class="mdi mdi-cog"></i> Admin
+          </a>
+        
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/profile/">
+          <i class="mdi mdi-account"></i> Profile
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/bookmarks/">
+          <i class="mdi mdi-bookmark"></i> Bookmarks
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/preferences/">
+          <i class="mdi mdi-wrench"></i> Preferences
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="/user/api-tokens/">
+          <i class="mdi mdi-key"></i> API Tokens
+        </a>
+      </li>
+      <li><hr class="dropdown-divider" /></li>
+      <li>
+        <a class="dropdown-item" href="/logout/">
+          <i class="mdi mdi-logout-variant"></i> Log Out
+        </a>
+      </li>
+    </ul>
+  </div>
+
+
+              </div>
+
+            </div>
+
+        </nav>
+
+        
+          <div class="text-center mx-3">
+            NetBox - ArchiFlow Integration
+          </div>
+        
+
+        
+
+        
+
+        
+        
+          <div class="title-container px-3 pb-3">
+
+            
+            <div id="content-title">
+              
+              <h1 class="h2 w-100"></h1>
+              
+            </div>
+
+            
+            
+
+          </div>
+        
+
+        
+        <div id="content" class="container-fluid content px-0 m-0">
+          
+          
+            <div class="px-3">
+              
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>ArchiFlow Network Diagram Editor</h3>
+            </div>
+            <div class="card-body p-0">
+                <iframe 
+                    id="archiflow-frame" 
+                    src="http://localhost:8081/?embed=1"
+                    style="width: 100%; height: 80vh; border: none;">
+                </iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+console.log('ArchiFlow Editor Page Loaded');
+
+window.addEventListener('load', function() {
+    console.log('Window loaded, starting ArchiFlow initialization...');
+    
+    const iframe = document.getElementById('archiflow-frame');
+    console.log('Found iframe:', iframe);
+    
+    // Wait for iframe to load
+    iframe.onload = function() {
+        console.log('Iframe loaded successfully');
+        
+        // Wait a bit for Draw.io to initialize
+        setTimeout(function() {
+            console.log('Attempting to inject ArchiFlow plugin...');
+            
+            try {
+                // Try to access iframe
+                const iframeWindow = iframe.contentWindow;
+                console.log('Got iframe window:', iframeWindow);
+                
+                // Load the plugin
+                fetch('http://localhost:8081/plugins/archiflow-complete.js')
+                    .then(response => {
+                        console.log('Plugin fetch response:', response.status);
+                        return response.text();
+                    })
+                    .then(scriptContent => {
+                        console.log('Plugin script loaded, length:', scriptContent.length);
+                        
+                        // Try to inject it
+                        try {
+                            iframeWindow.eval(scriptContent);
+                            console.log('Plugin injected via eval');
+                        } catch (e) {
+                            console.log('Direct eval failed (cross-origin), trying postMessage');
+                            
+                            // Use postMessage instead
+                            iframeWindow.postMessage({
+                                action: 'loadPlugin',
+                                script: scriptContent
+                            }, '*');
+                        }
+                        
+                        // Check if ArchiFlow is available
+                        setTimeout(function() {
+                            try {
+                                if (iframeWindow.ArchiFlow) {
+                                    console.log('✅ ArchiFlow plugin loaded successfully!');
+                                    console.log('Version:', iframeWindow.ArchiFlow.version);
+                                } else {
+                                    console.log('⚠️ ArchiFlow not found, but plugin was injected');
+                                }
+                            } catch (e) {
+                                console.log('Cannot check ArchiFlow due to cross-origin');
+                            }
+                        }, 2000);
+                    })
+                    .catch(error => {
+                        console.error('Failed to load plugin:', error);
+                    });
+            } catch (e) {
+                console.log('Error during plugin injection:', e);
+            }
+        }, 3000);
+    };
+});
+</script>
+
+            </div>
+          
+          
+          
+        </div>
+
+        
+        
+
+        
+        <footer class="footer container-fluid">
+          
+            <div class="row align-items-center justify-content-between mx-0">
+
+              <div class="col-sm-12 col-md-auto fs-4 noprint">
+                <nav class="nav justify-content-center justify-content-lg-start">
+                  
+                    
+                    <a type="button" class="nav-link" href="/static/docs/" target="_blank">
+                      <i title="Docs" class="mdi mdi-book-open-variant text-primary" data-bs-placement="top" data-bs-toggle="tooltip"></i>
+                    </a>
+
+                    
+                    <a type="button" class="nav-link" href="/api/" target="_blank">
+                      <i title="REST API" class="mdi mdi-cloud-braces text-primary" data-bs-placement="top" data-bs-toggle="tooltip"></i>
+                    </a>
+
+                    
+                    <a type="button" class="nav-link" href="/api/schema/swagger-ui/" target="_blank">
+                      <i title="REST API documentation" class="mdi mdi-book text-primary" data-bs-placement="top" data-bs-toggle="tooltip"></i>
+                    </a>
+
+                    
+                    
+                    <a type="button" class="nav-link" href="/graphql/" target="_blank">
+                      <i title="GraphQL API" class="mdi mdi-graphql text-primary" data-bs-placement="top" data-bs-toggle="tooltip"></i>
+                    </a>
+                    
+
+                    
+                    <a type="button" class="nav-link" href="https://github.com/netbox-community/netbox" target="_blank">
+                      <i title="Source Code" class="mdi mdi-github text-primary" data-bs-placement="top" data-bs-toggle="tooltip"></i>
+                    </a>
+
+                    
+                    <a type="button" class="nav-link" href="https://netdev.chat/" target="_blank">
+                      <i title="Community" class="mdi mdi-slack text-primary" data-bs-placement="top" data-bs-toggle="tooltip"></i>
+                    </a>
+                  
+                </nav>
+              </div>
+
+              <div class="col-sm-12 col-md-auto text-center text-lg-end text-muted">
+                <span class="d-block d-md-inline"><span title="Sept. 14, 2025 2:10 p.m.">2025-09-14 14:10</span> UTC</span>
+                <span class="ms-md-3 d-block d-md-inline">f483833bde86 (v3.7.8)</span>
+              </div>
+
+            </div>
+          
+        </footer>
+
+      </div>
+
+    </main>
+  </div>
+
+
+    
+    
+
+    
+    
+
+<div id="django-messages" class="toast-container">
+
+  
+  
+
+  
+  
+
+</div>
+
+
+    
+    <div id="netbox-data" style="display: none!important; visibility: hidden!important">
+      
+    </div>
+
+  </body>
+</html>

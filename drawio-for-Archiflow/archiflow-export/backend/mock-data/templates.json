@@ -1,0 +1,189 @@
+{
+  "templates": [
+    {
+      "id": "TMPL-001",
+      "name": "Standard Branch Office",
+      "description": "Basic branch office setup with router, switch, and firewall",
+      "category": "branch",
+      "variables": [
+        {
+          "name": "site_name",
+          "description": "Branch office location name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "subnet",
+          "description": "Network subnet for the branch",
+          "type": "cidr",
+          "required": true,
+          "default": "192.168.1.0/24"
+        },
+        {
+          "name": "gateway",
+          "description": "Default gateway IP",
+          "type": "ip",
+          "required": true
+        },
+        {
+          "name": "wan_ip",
+          "description": "WAN interface IP address",
+          "type": "ip",
+          "required": false
+        }
+      ],
+      "devices": [
+        {
+          "type": "router",
+          "name": "{{site_name}}-Router-01",
+          "position": {"x": 100, "y": 100}
+        },
+        {
+          "type": "switch",
+          "name": "{{site_name}}-Switch-01",
+          "position": {"x": 300, "y": 100}
+        },
+        {
+          "type": "firewall",
+          "name": "{{site_name}}-FW-01",
+          "position": {"x": 200, "y": 250}
+        }
+      ],
+      "connections": [
+        {
+          "source": "{{site_name}}-Router-01",
+          "target": "{{site_name}}-Switch-01",
+          "type": "ethernet",
+          "label": "Trunk"
+        },
+        {
+          "source": "{{site_name}}-Router-01",
+          "target": "{{site_name}}-FW-01",
+          "type": "ethernet",
+          "label": "DMZ"
+        }
+      ]
+    },
+    {
+      "id": "TMPL-002",
+      "name": "Three-Tier Architecture",
+      "description": "Standard three-tier network with Core, Distribution, and Access layers",
+      "category": "datacenter",
+      "variables": [
+        {
+          "name": "dc_name",
+          "description": "Data center name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "mgmt_vlan",
+          "description": "Management VLAN ID",
+          "type": "number",
+          "required": true,
+          "default": 10
+        }
+      ],
+      "devices": [
+        {
+          "type": "router",
+          "name": "{{dc_name}}-Core-Router-01",
+          "position": {"x": 200, "y": 50}
+        },
+        {
+          "type": "router",
+          "name": "{{dc_name}}-Core-Router-02",
+          "position": {"x": 400, "y": 50}
+        },
+        {
+          "type": "switch",
+          "name": "{{dc_name}}-Dist-Switch-01",
+          "position": {"x": 200, "y": 200}
+        },
+        {
+          "type": "switch",
+          "name": "{{dc_name}}-Dist-Switch-02",
+          "position": {"x": 400, "y": 200}
+        },
+        {
+          "type": "switch",
+          "name": "{{dc_name}}-Access-Switch-01",
+          "position": {"x": 150, "y": 350}
+        },
+        {
+          "type": "switch",
+          "name": "{{dc_name}}-Access-Switch-02",
+          "position": {"x": 300, "y": 350}
+        },
+        {
+          "type": "switch",
+          "name": "{{dc_name}}-Access-Switch-03",
+          "position": {"x": 450, "y": 350}
+        }
+      ],
+      "connections": [
+        {
+          "source": "{{dc_name}}-Core-Router-01",
+          "target": "{{dc_name}}-Core-Router-02",
+          "type": "fiber",
+          "label": "HA Link"
+        },
+        {
+          "source": "{{dc_name}}-Core-Router-01",
+          "target": "{{dc_name}}-Dist-Switch-01",
+          "type": "fiber",
+          "label": "10G"
+        },
+        {
+          "source": "{{dc_name}}-Core-Router-02",
+          "target": "{{dc_name}}-Dist-Switch-02",
+          "type": "fiber",
+          "label": "10G"
+        }
+      ]
+    },
+    {
+      "id": "TMPL-003",
+      "name": "DMZ Network",
+      "description": "DMZ setup with dual firewalls and load balancer",
+      "category": "security",
+      "variables": [
+        {
+          "name": "dmz_subnet",
+          "description": "DMZ network subnet",
+          "type": "cidr",
+          "required": true,
+          "default": "10.0.30.0/24"
+        }
+      ],
+      "devices": [
+        {
+          "type": "firewall",
+          "name": "External-FW-01",
+          "position": {"x": 200, "y": 50}
+        },
+        {
+          "type": "firewall",
+          "name": "Internal-FW-01",
+          "position": {"x": 200, "y": 350}
+        },
+        {
+          "type": "switch",
+          "name": "DMZ-Switch-01",
+          "position": {"x": 200, "y": 200}
+        },
+        {
+          "type": "server",
+          "name": "Web-Server-01",
+          "position": {"x": 100, "y": 200}
+        },
+        {
+          "type": "server",
+          "name": "Web-Server-02",
+          "position": {"x": 300, "y": 200}
+        }
+      ],
+      "connections": []
+    }
+  ]
+}
