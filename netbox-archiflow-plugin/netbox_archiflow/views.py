@@ -2,6 +2,10 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from dcim.models import Site
 
 class DiagramListView(LoginRequiredMixin, View):
     """List all diagrams"""
@@ -56,7 +60,20 @@ class DiagramDiagnosticView(LoginRequiredMixin, View):
 
 class DiagramCreateView(LoginRequiredMixin, View):
     """Create new diagram"""
-    
+
     def get(self, request):
         # Redirect to editor with new diagram mode
         return redirect('plugins:netbox_archiflow:diagram_editor')
+
+class SitesAPIView(LoginRequiredMixin, View):
+    """API endpoint to get all sites"""
+
+    def get(self, request):
+        try:
+            sites = Site.objects.all().values('id', 'name', 'slug', 'status', 'description')
+            sites_list = list(sites)
+            print(f"[SitesAPIView] Returning {len(sites_list)} sites")
+            return JsonResponse(sites_list, safe=False)
+        except Exception as e:
+            print(f"[SitesAPIView] Error: {e}")
+            return JsonResponse({'error': str(e)}, status=500)

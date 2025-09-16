@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { initializeDatabase, closeDatabase } from './database/connection.js';
 import { IPPoolManager, IPAllocationManager, DeviceManager, DiagramManager } from './database/ip-manager.js';
 import broadcastManager from './websocket/broadcast-manager.js';
+import VersionManager from './database/version-manager.js';
 
 // Load environment variables
 dotenv.config();
@@ -189,6 +190,110 @@ async function handleAction(ws, message, clientId) {
                     action,
                     success: true,
                     diagrams: diagrams
+                };
+                break;
+
+            // Version Management Actions
+            case 'sync_sites':
+                console.log('📥 sync_sites action received');
+                console.log('Sites to sync:', message.sites);
+                const syncResult = await VersionManager.syncSitesFromNetBox(message.sites || []);
+                console.log('✅ Sites synced to DB:', syncResult);
+                response = {
+                    action,
+                    success: syncResult.success,
+                    synced: syncResult.synced
+                };
+                console.log('📤 Sending sync_sites response:', response);
+                break;
+
+            case 'get_sites':
+                console.log('📥 get_sites action received');
+                const sites = await VersionManager.getSites();
+                console.log('🔍 Sites from DB:', sites);
+                console.log('🔍 Sites count:', sites ? sites.length : 0);
+                response = {
+                    action,
+                    success: true,
+                    sites: sites || []
+                };
+                console.log('📤 Sending sites response:', JSON.stringify(response));
+                break;
+
+            case 'get_diagrams_by_site':
+                const siteDiagrams = await VersionManager.getDiagramsBySite(message.siteId);
+                response = {
+                    action,
+                    success: true,
+                    diagrams: siteDiagrams
+                };
+                break;
+
+            case 'update_diagram':
+                // Update existing diagram with new data
+                const updateResult = await VersionManager.updateDiagram(
+                    message.diagramId,
+                    message.diagramData
+                );
+                response = {
+                    action,
+                    success: updateResult.success,
+                    message: updateResult.message
+                };
+                break;
+
+            case 'save_version':
+                const savedVersion = await VersionManager.saveDiagram({
+                    site_id: message.siteId,
+                    site_name: message.siteName,
+                    version: message.version,
+                    title: message.title,
+                    description: message.description,
+                    diagram_data: message.diagramData,
+                    user_id: message.userId || 'drawio-user',
+                    parent_version_id: message.parentVersionId
+                });
+                response = {
+                    action,
+                    success: true,
+                    diagram: savedVersion
+                };
+                break;
+
+            case 'deploy_version':
+                const deployment = await VersionManager.deployVersion(
+                    message.diagramId,
+                    message.userId || 'drawio-user'
+                );
+                response = {
+                    action,
+                    success: deployment.success,
+                    message: deployment.message
+                };
+                break;
+
+            case 'get_deployment_history':
+                const history = await VersionManager.getDeploymentHistory(
+                    message.siteId,
+                    message.limit || 10
+                );
+                response = {
+                    action,
+                    success: true,
+                    history: history
+                };
+                break;
+
+            case 'clone_version':
+                const cloned = await VersionManager.cloneVersion(
+                    message.sourceId,
+                    message.newVersion,
+                    message.userId || 'drawio-user'
+                );
+                response = {
+                    action,
+                    success: true,
+                    diagram: cloned
                 };
                 break;
 

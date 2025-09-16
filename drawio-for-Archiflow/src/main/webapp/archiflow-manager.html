@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ArchiFlow Diagram Manager</title>
+    <meta charset="utf-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 2px solid #e1e4e8;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .site-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        #site-dropdown {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            min-width: 250px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn:hover { background: #059669; }
+        .btn-deploy { background: #3b82f6; }
+        .btn-deploy:hover { background: #2563eb; }
+
+        .version-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f6f8fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e1e4e8;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+
+        tr:hover { background: #f9fafb; }
+
+        .live-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #10b981;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-draft { color: #6b7280; }
+        .status-deployed { color: #10b981; }
+        .status-archived { color: #9ca3af; }
+
+        .deployment-history {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .history-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+            border-left: 3px solid #10b981;
+            border-radius: 4px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌐 ArchiFlow Diagram Manager</h1>
+        <div id="connection-status">Connecting...</div>
+    </div>
+
+    <div class="container">
+        <div class="site-selector">
+            <label>Select Site:</label>
+            <select id="site-dropdown">
+                <option value="">Loading sites...</option>
+            </select>
+            <button class="btn" onclick="createNewVersion()">+ New Diagram</button>
+            <button class="btn" onclick="refreshSites()">🔄 Refresh</button>
+        </div>
+
+        <div class="version-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Version</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Author</th>
+                        <th>Live</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="version-list">
+                    <tr>
+                        <td colspan="7" class="loading">Select a site to view diagrams</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="deployment-history">
+            <h3>📜 Deployment History</h3>
+            <div id="history-list">
+                <p>No deployment history</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentSite = null;
+        let sites = [];
+        let diagrams = [];
+
+        // Connect to WebSocket
+        function connect() {
+            ws = new WebSocket('ws://localhost:3333');
+
+            ws.onopen = () => {
+                console.log('Connected to ArchiFlow');
+                document.getElementById('connection-status').innerHTML = '🟢 Connected';
+                loadSites();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleResponse(data);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                document.getElementById('connection-status').innerHTML = '🔴 Error';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-status').innerHTML = '🔴 Disconnected';
+                setTimeout(connect, 3000);
+            };
+        }
+
+        // Send message to server
+        function send(action, params = {}) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action, ...params }));
+            }
+        }
+
+        // Handle server responses
+        function handleResponse(data) {
+            if (data.action === 'get_sites') {
+                sites = data.sites || [];
+                updateSiteDropdown();
+            } else if (data.action === 'get_diagrams_by_site') {
+                diagrams = data.diagrams || [];
+                updateVersionTable();
+            } else if (data.action === 'get_deployment_history') {
+                updateDeploymentHistory(data.history || []);
+            } else if (data.action === 'deploy_version') {
+                if (data.success) {
+                    alert('Version deployed successfully!');
+                    loadDiagrams(currentSite);
+                } else {
+                    alert('Deployment failed: ' + data.message);
+                }
+            }
+        }
+
+        // Load sites from server
+        function loadSites() {
+            send('get_sites');
+        }
+
+        // Update site dropdown
+        function updateSiteDropdown() {
+            const dropdown = document.getElementById('site-dropdown');
+            dropdown.innerHTML = '<option value="">Select a site...</option>';
+
+            sites.forEach(site => {
+                const option = document.createElement('option');
+                option.value = site.id;
+                option.textContent = site.name + ' (' + site.status + ')';
+                dropdown.appendChild(option);
+            });
+
+            // Auto-select first site if only one
+            if (sites.length === 1) {
+                dropdown.value = sites[0].id;
+                loadDiagrams(sites[0].id);
+            }
+        }
+
+        // Load diagrams for selected site
+        function loadDiagrams(siteId) {
+            if (!siteId) return;
+
+            currentSite = siteId;
+            send('get_diagrams_by_site', { siteId });
+            send('get_deployment_history', { siteId });
+        }
+
+        // Update version table
+        function updateVersionTable() {
+            const tbody = document.getElementById('version-list');
+
+            if (diagrams.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="loading">No diagrams found for this site</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = diagrams.map(d => `
+                <tr style="${d.is_live ? 'background:#f0fdf4' : ''}">
+                    <td>${d.version}</td>
+                    <td>${d.title}</td>
+                    <td><span class="status-${d.status}">${d.status}</span></td>
+                    <td>${new Date(d.created_at).toLocaleDateString()}</td>
+                    <td>${d.created_by}</td>
+                    <td>${d.is_live ? '<span class="live-badge">🟢 LIVE</span>' : ''}</td>
+                    <td>
+                        <button class="btn" onclick="openDiagram('${d.id}')">Open</button>
+                        ${!d.is_live ? `<button class="btn btn-deploy" onclick="deployVersion('${d.id}')">Deploy</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update deployment history
+        function updateDeploymentHistory(history) {
+            const historyDiv = document.getElementById('history-list');
+
+            if (history.length === 0) {
+                historyDiv.innerHTML = '<p>No deployment history</p>';
+                return;
+            }
+
+            historyDiv.innerHTML = history.map(h => `
+                <div class="history-item">
+                    <strong>${h.version}</strong> ${h.action} by ${h.performed_by}<br>
+                    <small>${new Date(h.timestamp).toLocaleString()}</small>
+                    ${h.notes ? '<br>' + h.notes : ''}
+                </div>
+            `).join('');
+        }
+
+        // Open diagram in Draw.io
+        function openDiagram(diagramId) {
+            window.location.href = `/index.html?diagram=${diagramId}`;
+        }
+
+        // Deploy version as LIVE
+        function deployVersion(diagramId) {
+            if (confirm('Deploy this version as LIVE? The current LIVE version will be archived.')) {
+                send('deploy_version', { diagramId, userId: 'admin' });
+            }
+        }
+
+        // Create new version
+        function createNewVersion() {
+            if (!currentSite) {
+                alert('Please select a site first');
+                return;
+            }
+
+            const version = prompt('Enter version number (e.g., v1.0):');
+            if (version) {
+                window.location.href = `/index.html?site=${currentSite}&version=${version}&new=true`;
+            }
+        }
+
+        // Refresh sites
+        function refreshSites() {
+            loadSites();
+        }
+
+        // Site selection change
+        document.getElementById('site-dropdown').addEventListener('change', (e) => {
+            loadDiagrams(e.target.value);
+        });
+
+        // Initialize
+        connect();
+    </script>
+</body>
+</html>

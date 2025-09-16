@@ -7,4 +7,5 @@ urlpatterns = [
     path('editor/<int:pk>/', views.DiagramEditorView.as_view(), name='diagram_edit'),
     path('create/', views.DiagramCreateView.as_view(), name='diagram_create'),
     path('diagnostic/', views.DiagramDiagnosticView.as_view(), name='diagram_diagnostic'),
+    path('api/sites/', views.SitesAPIView.as_view(), name='api_sites'),
 ]

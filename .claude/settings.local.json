@@ -3,7 +3,9 @@
     "allow": [
       "Bash(docker exec:*)",
       "Bash(docker-compose restart:*)",
-      "WebFetch(domain:netboxlabs.com)"
+      "WebFetch(domain:netboxlabs.com)",
+      "Read(//f/**)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

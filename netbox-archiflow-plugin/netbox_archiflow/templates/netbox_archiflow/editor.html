@@ -6,18 +6,139 @@
     <li class="breadcrumb-item active">Editor</li>
 {% endblock %}
 
+{% block extra_styles %}
+<style>
+    .version-manager {
+        background: #f0fdf4;
+        border: 2px solid #10b981;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .version-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .site-selector {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .version-table {
+        background: white;
+        border-radius: 4px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .version-table table {
+        width: 100%;
+        margin: 0;
+    }
+
+    .version-table th {
+        background: #f6f8fa;
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    .version-table td {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+
+    .live-badge {
+        background: #10b981;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .btn-xs {
+        padding: 2px 8px;
+        font-size: 11px;
+    }
+
+    #version-toggle {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .version-content {
+        transition: all 0.3s ease;
+    }
+
+    .version-content.collapsed {
+        display: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+{% csrf_token %}
 <div class="row">
     <div class="col-12">
+        <!-- Version Manager Section (Green Box) -->
+        <div class="version-manager" id="version-manager">
+            <div class="version-header">
+                <div class="site-selector">
+                    <label style="margin: 0; margin-right: 10px;">Site:</label>
+                    <select id="site-select" class="form-select form-select-sm" style="width: 200px; display: inline-block;">
+                        <option value="">Loading sites...</option>
+                    </select>
+                    <button class="btn btn-sm btn-success" onclick="createNewVersion()" style="margin-left: 10px;">
+                        + New Diagram
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="saveCurrentDiagram()" style="margin-left: 5px;">
+                        💾 Save Current
+                    </button>
+                </div>
+
+            <div class="version-content" id="version-content">
+                <div class="version-table">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Site</th>
+                                <th>Version</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Author</th>
+                                <th>Live</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="version-list">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">
+                                    Select a site to view diagrams
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Draw.io Editor -->
         <div class="card">
             <div class="card-header">
                 <h3>ArchiFlow Network Diagram Editor</h3>
+                <small id="current-diagram-info" class="text-muted"></small>
             </div>
             <div class="card-body p-0">
-                <div style="height: 80vh;">
-                    <iframe 
-                        id="archiflow-frame" 
-                        src="http://localhost:8081/archiflow-loader.html"
+                <div style="height: 70vh;">
+                    <iframe
+                        id="archiflow-frame"
+                        src="about:blank"
                         style="width: 100%; height: 100%; border: none;">
                     </iframe>
                 </div>
@@ -27,20 +148,608 @@
 </div>
 
 <script>
-// Initialize ArchiFlow integration
+// Error handler to catch issues
+window.addEventListener('error', (e) => {
+    console.error('JavaScript Error:', e.message, 'at line', e.lineno);
+});
+
+// Version Manager functionality
+let ws = null;
+let currentSite = null;
+let currentDiagram = null;
+let sites = [];
+let diagrams = [];
+
+// Connect to ArchiFlow WebSocket
+let isConnecting = false;
+let reconnectAttempts = 0;
+
+function connectWebSocket() {
+    if (isConnecting || (ws && ws.readyState === WebSocket.OPEN)) {
+        console.log('Already connected or connecting');
+        return;
+    }
+
+    isConnecting = true;
+    console.log('Attempting to connect to WebSocket...');
+    ws = new WebSocket('ws://localhost:3333');
+
+    ws.onopen = () => {
+        console.log('✅ Connected to ArchiFlow WebSocket');
+        isConnecting = false;
+        reconnectAttempts = 0;
+
+        // Load fresh sites from NetBox and sync to ArchiFlow DB
+        loadSitesDirectly();
+
+        // Also request sites from ArchiFlow DB after a short delay
+        setTimeout(() => {
+            console.log('Requesting sites from ArchiFlow DB...');
+            sendToWebSocket('get_sites');
+        }, 1000);
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleWebSocketResponse(data);
+    };
+
+    ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+        isConnecting = false;
+
+        // Try to load sites from NetBox API as fallback
+        console.log('📥 Falling back to NetBox API for sites...');
+        loadSitesDirectly();
+
+        // Show error message to user
+        const dropdown = document.getElementById('site-select-simple');
+        if (dropdown && dropdown.options.length <= 1) {
+            dropdown.innerHTML = '<option value="">WebSocket error - Using cached data</option>';
+        }
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        isConnecting = false;
+
+        // Only reconnect if we haven't tried too many times
+        if (reconnectAttempts < 3) {
+            reconnectAttempts++;
+            setTimeout(connectWebSocket, 5000);
+        }
+    };
+}
+
+// Send message to WebSocket
+function sendToWebSocket(action, params = {}) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        const message = { action, ...params };
+        console.log('📨 Sending to WebSocket:', message);
+        ws.send(JSON.stringify(message));
+    } else {
+        console.warn('⚠️ WebSocket not open, cannot send:', action);
+    }
+}
+
+// Handle WebSocket responses
+function handleWebSocketResponse(data) {
+    console.log('📨 WebSocket response received:', data);
+    console.log('Response type:', data.type);
+    console.log('Response action:', data.action);
+
+    if (data.type === 'welcome') {
+        console.log('✅ WebSocket welcome message received');
+        // Don't auto-load sites here, already loaded in onopen
+    } else if (data.action === 'get_sites') {
+        console.log('Sites received from WebSocket:', data.sites);
+        if (data.sites && data.sites.length > 0) {
+            sites = data.sites;
+            populateDropdown(sites);
+        }
+    } else if (data.action === 'get_diagrams_by_site') {
+        console.log('Received diagrams:', data.diagrams);
+        diagrams = data.diagrams || [];
+        updateVersionTable();
+    } else if (data.action === 'deploy_version') {
+        if (data.success) {
+            alert('Version deployed successfully!');
+            loadDiagrams(currentSite);
+        }
+    } else if (data.action === 'sync_sites') {
+        console.log('✅ Sites synced to ArchiFlow DB:', data);
+        // After syncing, request the sites back to update dropdown
+        console.log('📥 Requesting sites after sync...');
+        setTimeout(() => {
+            sendToWebSocket('get_sites');
+        }, 500);
+    } else {
+        console.log('📨 Other response:', data.action || data.type);
+    }
+}
+
+// Load sites from NetBox through our plugin API
+function loadSitesDirectly() {
+    console.log('Loading sites from NetBox...');
+
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                      getCookie('csrftoken');
+
+    // Use our plugin's API endpoint which has access to NetBox models
+    fetch('/plugins/archiflow/api/sites/', {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('Sites API response status:', response.status);
+        if (!response.ok) throw new Error('API error: ' + response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Sites loaded from NetBox:', data);
+        console.log('Data type:', typeof data);
+        console.log('Is array:', Array.isArray(data));
+
+        // Make sure we have an array
+        const sitesArray = Array.isArray(data) ? data : (data.results || []);
+        console.log('Sites array:', sitesArray);
+
+        // Transform to our format
+        const sitesList = sitesArray.map(site => ({
+            id: site.id,
+            name: site.name,
+            slug: site.slug,
+            status: site.status || 'active',
+            description: site.description || ''
+        }));
+
+        console.log('Processed sites:', sitesList);
+        console.log('Setting global sites variable...');
+
+        // Update dropdown immediately
+        sites = sitesList;
+        populateDropdown(sites);
+
+        // Sync to ArchiFlow DB
+        if (sitesList.length > 0) {
+            console.log('Syncing sites to ArchiFlow DB:', sitesList);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                sendToWebSocket('sync_sites', { sites: sitesList });
+                console.log('Sites sync sent via WebSocket');
+            } else {
+                console.warn('WebSocket not ready, saving sites for later sync');
+                // Store for later when WebSocket connects
+                window.pendingSitesSync = sitesList;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error loading sites from NetBox:', error);
+
+        // Update dropdown with error message
+        const dropdown = document.getElementById('site-select-simple');
+        if (dropdown) {
+            dropdown.innerHTML = '<option value="">Error loading sites - Check console</option>';
+        }
+
+        // As last resort, try to get from ArchiFlow DB
+        console.log('📥 Falling back to ArchiFlow DB...');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            sendToWebSocket('get_sites');
+        } else {
+            console.error('❌ WebSocket not available for fallback');
+            // Try with hardcoded sites for testing
+            console.log('🧪 Using hardcoded sites for testing...');
+            sites = [
+                { id: 1, name: 'TLV-DC-01', slug: 'tlv-dc-01', status: 'active', description: 'Test site' },
+                { id: 4, name: 'RishonLetzion', slug: 'rishonletzion', status: 'active', description: 'Test site' }
+            ];
+            updateSiteDropdown();
+        }
+    });
+}
+
+
+// Helper function to get cookie value
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Load sites from ArchiFlow
+function loadSites() {
+    sendToWebSocket('get_sites');
+}
+
+// SIMPLE function to populate dropdown
+function populateDropdown(sitesArray) {
+    const dropdown = document.getElementById('site-select');
+    if (!dropdown) return;
+
+    console.log('Populating dropdown with', sitesArray?.length || 0, 'sites');
+
+    // DESTROY TOM SELECT IF IT EXISTS
+    if (dropdown.tomselect) {
+        console.log('Destroying Tom Select to populate...');
+        dropdown.tomselect.destroy();
+    }
+
+    // Clear it
+    dropdown.innerHTML = '';
+
+    // Add default
+    dropdown.add(new Option('Select a site...', ''));
+
+    // Add sites
+    if (sitesArray && sitesArray.length > 0) {
+        sitesArray.forEach(site => {
+            dropdown.add(new Option(site.name, site.id));
+        });
+        console.log('✅ Added', sitesArray.length, 'sites to dropdown');
+
+        // Make sure it stays visible
+        dropdown.style.display = 'inline-block';
+        dropdown.style.visibility = 'visible';
+    }
+}
+
+// Update site dropdown wrapper
+function updateSiteDropdown() {
+    populateDropdown(sites);
+}
+
+// Load diagrams for selected site
+function loadDiagrams(siteId) {
+    if (!siteId) return;
+
+    currentSite = siteId;
+    sendToWebSocket('get_diagrams_by_site', { siteId });
+}
+
+// Update version table
+function updateVersionTable() {
+    const tbody = document.getElementById('version-list');
+
+    if (diagrams.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No diagrams found for this site
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = diagrams.map(d => {
+        // Get site name from our loaded sites or use the stored one
+        const siteName = sites.find(s => s.id == d.site_id)?.name || d.site_name || 'Unknown Site';
+
+        return `
+        <tr style="${d.is_live ? 'background:#f0fdf4' : ''}">
+            <td>${siteName}</td>
+            <td>${d.version}</td>
+            <td>${d.title}</td>
+            <td>
+                <span class="badge badge-${d.status === 'deployed' ? 'success' : 'secondary'}">
+                    ${d.status}
+                </span>
+            </td>
+            <td>${new Date(d.created_at).toLocaleDateString()}</td>
+            <td>${d.created_by}</td>
+            <td>${d.is_live ? '<span class="live-badge">LIVE</span>' : ''}</td>
+            <td>
+                <button class="btn btn-xs btn-primary" onclick="openDiagram('${d.id}')">
+                    Open
+                </button>
+                ${!d.is_live ? `
+                    <button class="btn btn-xs btn-success" onclick="deployVersion('${d.id}')">
+                        Deploy
+                    </button>
+                ` : ''}
+            </td>
+        </tr>
+        `;
+    }).join('');
+}
+
+// Open diagram in Draw.io iframe
+function openDiagram(diagramId) {
+    currentDiagram = diagramId;
+    const diagram = diagrams.find(d => d.id === diagramId);
+
+    console.log('Opening diagram:', diagram);
+
+    // Clear any existing Draw.io storage first
+    clearDrawioStorage();
+
+    const iframe = document.getElementById('archiflow-frame');
+
+    // Create proper diagram XML
+    const diagramXml = (diagram && diagram.diagram_data && diagram.diagram_data !== '' && diagram.diagram_data !== '<mxfile></mxfile>')
+        ? diagram.diagram_data
+        : getEmptyDiagram();
+
+    console.log('Diagram has real data:', !!(diagram && diagram.diagram_data && diagram.diagram_data.length > 50));
+
+    // Force reload iframe to clear any cached state
+    iframe.src = 'about:blank';
+
+    setTimeout(() => {
+        // Load fresh Draw.io instance
+        iframe.src = `http://localhost:8081/archiflow-loader.html?splash=0&modified=0&chrome=0`;
+
+        // Wait for Draw.io to initialize then load our diagram
+        setTimeout(() => {
+            console.log('Sending diagram to Draw.io...');
+            iframe.contentWindow.postMessage({
+                action: 'load',
+                xml: diagramXml,
+                title: diagram ? diagram.title : 'New Diagram'
+            }, '*');
+        }, 2000);
+    }, 100);
+
+    // Update info
+    if (diagram) {
+        document.getElementById('current-diagram-info').textContent =
+            `Currently editing: ${diagram.version} - ${diagram.title} ${diagram.is_live ? '(LIVE)' : ''}`;
+    }
+}
+
+// Helper function to create empty diagram
+function getEmptyDiagram() {
+    return `<mxfile host="app.diagrams.net" modified="${new Date().toISOString()}" agent="ArchiFlow" version="1.0">
+        <diagram name="Page-1" id="archiflow">
+            <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169">
+                <root>
+                    <mxCell id="0"/>
+                    <mxCell id="1" parent="0"/>
+                </root>
+            </mxGraphModel>
+        </diagram>
+    </mxfile>`;
+}
+
+// Save diagram to database
+function saveDiagramToDatabase(xmlData) {
+    if (!currentDiagram || !xmlData) {
+        console.warn('No diagram selected or no data to save');
+        return;
+    }
+
+    console.log('Saving diagram to database...');
+    console.log('Diagram ID:', currentDiagram);
+    console.log('Data length:', xmlData.length);
+
+    // Send to WebSocket to save
+    sendToWebSocket('update_diagram', {
+        diagramId: currentDiagram,
+        diagramData: xmlData,
+        userId: '{{ user.username }}'
+    });
+
+    // Show feedback
+    alert('✅ Diagram saved to database!');
+
+    // Reload the diagrams list to show updated timestamp
+    if (currentSite) {
+        setTimeout(() => loadDiagrams(currentSite), 500);
+    }
+}
+
+// Function to explicitly save current diagram
+function saveCurrentDiagram() {
+    if (!currentDiagram) {
+        alert('Please open a diagram first');
+        return;
+    }
+
+    const iframe = document.getElementById('archiflow-frame');
+
+    console.log('Requesting current diagram XML from Draw.io...');
+
+    // Request Draw.io to send us the current XML
+    iframe.contentWindow.postMessage({
+        action: 'export',
+        format: 'xml'
+    }, '*');
+
+    // We'll receive the XML in the message handler below
+}
+
+// Clear Draw.io local storage
+function clearDrawioStorage() {
+    const iframe = document.getElementById('archiflow-frame');
+
+    // Clear localStorage for Draw.io domain
+    try {
+        iframe.contentWindow.postMessage({
+            action: 'clear'
+        }, '*');
+
+        // Also try to clear via localStorage directly
+        if (window.localStorage) {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('draft') || key.includes('diagram') || key.includes('.drawio'))) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            console.log('Cleared', keysToRemove.length, 'Draw.io storage items');
+        }
+    } catch (e) {
+        console.log('Could not clear Draw.io storage:', e);
+    }
+}
+
+// Deploy version as LIVE
+function deployVersion(diagramId) {
+    if (confirm('Deploy this version as LIVE? The current LIVE version will be archived.')) {
+        sendToWebSocket('deploy_version', {
+            diagramId,
+            userId: '{{ user.username }}'
+        });
+    }
+}
+
+// Create new version
+function createNewVersion() {
+    if (!currentSite) {
+        alert('Please select a site first');
+        return;
+    }
+
+    const version = prompt('Enter version number (e.g., v1.0):');
+    if (version) {
+        const title = prompt('Enter diagram title:');
+        if (title) {
+            // Create empty diagram and open editor
+            sendToWebSocket('save_version', {
+                siteId: currentSite,
+                siteName: sites.find(s => s.id == currentSite)?.name || 'Unknown',
+                version: version,
+                title: title,
+                description: 'New diagram',
+                diagramData: '',
+                userId: '{{ user.username }}'
+            });
+
+            // Reload diagrams
+            setTimeout(() => loadDiagrams(currentSite), 500);
+        }
+    }
+}
+
+// Refresh sites - manual trigger for testing
+function refreshSites() {
+    console.log('🔄 Manual refresh triggered');
+
+    // Method 1: Load from NetBox API
+    console.log('📥 Loading from NetBox API...');
+    loadSitesDirectly();
+
+    // Method 2: Request from ArchiFlow DB
+    setTimeout(() => {
+        console.log('📥 Requesting from ArchiFlow DB...');
+        sendToWebSocket('get_sites');
+    }, 1000);
+}
+
+// Test function to directly call get_sites
+function testGetSites() {
+    console.log('🧪 TEST: Directly calling get_sites');
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('✅ WebSocket is open, sending get_sites');
+        sendToWebSocket('get_sites');
+    } else {
+        console.log('❌ WebSocket not open, state:', ws ? ws.readyState : 'null');
+    }
+}
+
+// Make test function globally accessible
+window.testGetSites = testGetSites;
+
+// Debug function to check dropdown
+window.checkDropdown = function() {
+    const dropdown = document.getElementById('site-select');
+    console.log('=== DROPDOWN DEBUG ===');
+    console.log('Dropdown exists:', !!dropdown);
+    if (dropdown) {
+        console.log('Options count:', dropdown.options.length);
+        console.log('Current value:', dropdown.value);
+        console.log('Visible:', dropdown.style.display !== 'none');
+        console.log('Parent:', dropdown.parentElement);
+
+        // Check for Tom Select
+        if (dropdown.tomselect) {
+            console.log('⚠️ TOM SELECT IS ACTIVE!');
+            console.log('Tom Select options:', Object.keys(dropdown.tomselect.options));
+        } else {
+            console.log('✅ No Tom Select (good!)');
+        }
+
+        // List all options
+        for(let i = 0; i < dropdown.options.length; i++) {
+            console.log(`  Option ${i}: "${dropdown.options[i].text}" (value: ${dropdown.options[i].value})`);
+        }
+    }
+    console.log('Global sites variable:', sites);
+    console.log('===================');
+};
+
+// Site selection handler - SIMPLE VERSION
+document.addEventListener('DOMContentLoaded', () => {
+    const siteSelect = document.getElementById('site-select');
+    if (siteSelect) {
+        siteSelect.addEventListener('change', (e) => {
+            console.log('Site selected:', e.target.value);
+            if (e.target.value) {
+                loadDiagrams(e.target.value);
+            }
+        });
+    }
+});
+
+// Removed toggle functionality - no longer needed
+
+// Original Draw.io integration code
 window.addEventListener('load', function() {
     const iframe = document.getElementById('archiflow-frame');
-    
+
+    // Load Draw.io with minimal parameters
+    iframe.src = 'http://localhost:8081/archiflow-loader.html?splash=0';
+
+    // Connect to WebSocket for version management
+    connectWebSocket();
+
+    // PREVENT TOM SELECT FROM INITIALIZING TOO EARLY
+    const dropdown = document.getElementById('site-select');
+    if (dropdown && dropdown.tomselect) {
+        console.log('Destroying early Tom Select...');
+        dropdown.tomselect.destroy();
+    }
+
+    // Load sites from database on page load
+    setTimeout(() => {
+        console.log('Loading sites from database...');
+
+        // Method 1: Try WebSocket
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log('Requesting sites via WebSocket...');
+            sendToWebSocket('get_sites');
+        }
+
+        // Method 2: Try NetBox API (as backup)
+        setTimeout(() => {
+            loadSitesDirectly();
+        }, 500);
+    }, 1000);
+
     // Handle messages from Draw.io
     window.addEventListener('message', function(event) {
-        // Verify origin
         if (event.origin !== 'http://localhost:8081') {
             return;
         }
-        
+
         const message = event.data;
-        
-        // Handle different message types
+
         if (message.event === 'init') {
             console.log('Draw.io initialized');
             // Send NetBox context to Draw.io
@@ -50,14 +759,42 @@ window.addEventListener('load', function() {
                     user: '{{ user.username }}',
                     userId: '{{ user.id }}',
                     email: '{{ user.email }}',
-                    isSuperuser: {{ user.is_superuser|yesno:"true,false" }}
+                    isSuperuser: {{ user.is_superuser|yesno:"true,false" }},
+                    currentSite: currentSite,
+                    currentDiagram: currentDiagram
                 }
             }, 'http://localhost:8081');
         } else if (message.event === 'save') {
-            console.log('Diagram saved');
-            // Could trigger NetBox-specific save actions here
+            console.log('Diagram save event received', message);
+            // Save the actual diagram data to database
+            if (currentDiagram && message.xml) {
+                saveDiagramToDatabase(message.xml);
+            }
+        } else if (message.event === 'autosave') {
+            console.log('Diagram autosave event received');
+            if (currentDiagram && message.xml) {
+                saveDiagramToDatabase(message.xml);
+            }
         } else if (message.event === 'export') {
-            console.log('Diagram exported');
+            console.log('Diagram export response received');
+            // The exported data is usually in message.data
+            if (message.data) {
+                // Decode if it's base64
+                let xmlData = message.data;
+                if (message.format === 'xml' || message.data.includes('base64')) {
+                    // If it's base64 encoded, decode it
+                    try {
+                        const base64Data = message.data.split(',')[1] || message.data;
+                        xmlData = atob(base64Data);
+                    } catch (e) {
+                        console.log('Data not base64, using as-is');
+                        xmlData = message.data;
+                    }
+                }
+                saveDiagramToDatabase(xmlData);
+            } else if (message.xml) {
+                saveDiagramToDatabase(message.xml);
+            }
         }
     });
 });
