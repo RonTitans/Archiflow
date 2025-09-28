@@ -2171,6 +2171,10 @@ Draw.loadPlugin(function(ui) {
     }, 1000);
     
     console.log('[ArchiFlow] Plugin ready! Check Extras menu for ArchiFlow options.');
+});
+
+// ArchiFlow Direct Save - Save directly to database on Ctrl+S
+
     // ArchiFlow Direct Save - Integrated into main plugin
     console.log('[ArchiFlow Direct Save] Initializing...');
 
@@ -2178,34 +2182,20 @@ Draw.loadPlugin(function(ui) {
     function saveToArchiFlow() {
         try {
             // Get the diagram XML
-            const graphXml = ui.editor.getGraphXml();
-            if (!graphXml) {
-                console.error('[ArchiFlow] No graph XML available');
-                ui.editor.setStatus('Error: No diagram to save');
-                return;
-            }
-
-            const xml = mxUtils.getXml(graphXml);
+            const xml = mxUtils.getXml(ui.editor.getGraphXml());
             const filename = ui.editor.filename || 'diagram.drawio';
-
-            console.log('[ArchiFlow Direct Save] Preparing to save:');
-            console.log('  - Filename:', filename);
-            console.log('  - XML size:', xml.length, 'bytes');
-            console.log('  - XML preview:', xml.substring(0, 200));
-            console.log('  - Is in iframe:', window.parent !== window);
+            
+            console.log('[ArchiFlow Direct Save] Saving:', filename, 'Size:', xml.length);
 
             // Send to parent (NetBox)
             if (window.parent && window.parent !== window) {
-                const message = {
+                window.parent.postMessage({
                     event: 'save',
                     action: 'save',
                     xml: xml,
                     title: filename,
                     timestamp: new Date().toISOString()
-                };
-
-                console.log('[ArchiFlow] Sending save message to parent:', message);
-                window.parent.postMessage(message, '*');
+                }, '*');
 
                 // Update UI
                 ui.editor.setModified(false);
@@ -2257,84 +2247,16 @@ Draw.loadPlugin(function(ui) {
 
         if (data && data.action === 'load' && data.xml) {
             console.log('[ArchiFlow Direct Save] Loading diagram, XML length:', data.xml.length);
-            console.log('[ArchiFlow Direct Save] XML content:', data.xml);
-
-            // Check if this is actually an empty diagram
-            const isEmptyDiagram = !data.xml.includes('value=') &&
-                                   !data.xml.includes('ROUTER') &&
-                                   !data.xml.includes('vertex') &&
-                                   !data.xml.includes('edge');
-
-            console.log('[ArchiFlow Direct Save] Is empty diagram:', isEmptyDiagram);
-
             try {
-                // NUCLEAR OPTION: Create a completely new editor
-                console.log('[ArchiFlow Direct Save] NUCLEAR CLEAR - Creating fresh editor state');
-
-                // Clear EVERYTHING
-                ui.editor.graph.model.clear();
-                ui.editor.graph.view.clear();
-
-                // Create a brand new empty graph
-                const newModel = new mxGraphModel();
-                const newRoot = new mxCell();
-                newRoot.insert(new mxCell());
-                newModel.setRoot(newRoot);
-
-                // Replace the model
-                ui.editor.graph.model = newModel;
-                ui.editor.graph.view = new mxGraphView(ui.editor.graph);
-
-                // Reset all state
-                ui.editor.filename = null;
-                ui.editor.setModified(false);
-                ui.editor.graph.clearSelection();
-                ui.editor.graph.view.scale = 1;
-                ui.editor.graph.view.translate = new mxPoint(0, 0);
-
-                // Parse and load the new diagram
                 const doc = mxUtils.parseXml(data.xml);
-                const node = doc.documentElement;
-
-                // Use a fresh graph load
-                ui.editor.graph.model.beginUpdate();
-                try {
-                    ui.editor.setGraphXml(node);
-                } finally {
-                    ui.editor.graph.model.endUpdate();
-                }
-
+                ui.editor.setGraphXml(doc.documentElement);
                 ui.editor.setModified(false);
-
-                // Update filename
                 if (data.title) {
                     ui.editor.filename = data.title;
                 }
-
-                // Center and fit the view
-                ui.editor.graph.fit();
-                ui.editor.graph.center();
-
                 console.log('[ArchiFlow Direct Save] Diagram loaded successfully');
-
-                // Send confirmation back
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        event: 'diagram_loaded',
-                        success: true
-                    }, '*');
-                }
             } catch (error) {
                 console.error('[ArchiFlow Direct Save] Load error:', error);
-
-                // Send error back
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        event: 'diagram_loaded',
-                        success: false,
-                        error: error.message
-                    }, '*');
-                }
             }
         }
     });

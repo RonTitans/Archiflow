@@ -231,6 +231,12 @@ async function handleAction(ws, message, clientId) {
 
             case 'update_diagram':
                 // Update existing diagram with new data
+                console.log('📥 update_diagram action received');
+                console.log('  - diagramId:', message.diagramId);
+                console.log('  - diagramData type:', typeof message.diagramData);
+                console.log('  - diagramData length:', message.diagramData ? message.diagramData.length : 'null/undefined');
+                console.log('  - diagramData preview:', message.diagramData ? message.diagramData.substring(0, 100) : 'null/undefined');
+
                 const updateResult = await VersionManager.updateDiagram(
                     message.diagramId,
                     message.diagramData

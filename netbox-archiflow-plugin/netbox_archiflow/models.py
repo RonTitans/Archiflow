@@ -1,3 +1,3 @@
-# Models will be added later if needed
-# For now, we're focusing on the UI integration
+# Models will be added in a future update
+# For now, the diagram data is stored entirely in the ArchiFlow database
 pass

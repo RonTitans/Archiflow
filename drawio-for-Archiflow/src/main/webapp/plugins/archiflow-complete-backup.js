@@ -200,6 +200,20 @@ Draw.loadPlugin(function(ui) {
         ArchiFlow.logUserAction('allocate_ip_initiated');
         
         var cell = ui.editor.graph.getSelectionCell();
+        // Initialize ArchiFlow properties if missing
+        if (cell && !cell.archiflow) {
+            cell.archiflow = {
+                type: cell.style || "device",
+                assetId: "ASSET-" + cell.id + "-" + Date.now(),
+                ip: null,
+                name: cell.value || "Device-" + cell.id,
+                poolId: null
+            };
+        }
+        // Ensure asset ID exists
+        if (cell && cell.archiflow && !cell.archiflow.assetId) {
+            cell.archiflow.assetId = "ASSET-" + cell.id + "-" + Date.now();
+        }
         
         if (!cell || !cell.archiflow) {
             this.showAlert('No Device Selected', 'warning', 'Please select a network device first');
@@ -2157,4 +2171,83 @@ Draw.loadPlugin(function(ui) {
     }, 1000);
     
     console.log('[ArchiFlow] Plugin ready! Check Extras menu for ArchiFlow options.');
+});
+
+// ArchiFlow Direct Save - Save directly to database on Ctrl+S
+Draw.loadPlugin(function(ui) {
+    console.log('[ArchiFlow Direct Save] Initializing...');
+
+    // Function to save to ArchiFlow database
+    function saveToArchiFlow() {
+        try {
+            // Get the diagram XML
+            const xml = mxUtils.getXml(ui.editor.getGraphXml());
+            const filename = ui.editor.filename || 'diagram.drawio';
+            
+            console.log('[ArchiFlow Direct Save] Saving:', filename, 'Size:', xml.length);
+
+            // Send to parent (NetBox)
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    event: 'save',
+                    action: 'save',
+                    xml: xml,
+                    title: filename,
+                    timestamp: new Date().toISOString()
+                }, '*');
+
+                // Update UI
+                ui.editor.setModified(false);
+                ui.editor.setStatus('Saved to ArchiFlow');
+                
+                setTimeout(function() {
+                    ui.editor.setStatus('');
+                }, 3000);
+                
+                console.log('[ArchiFlow Direct Save] Save complete');
+            }
+        } catch (error) {
+            console.error('[ArchiFlow Direct Save] Error:', error);
+            ui.editor.setStatus('Save failed!');
+        }
+    }
+
+    // Override save action
+    const originalSave = ui.actions.get('save');
+    if (originalSave) {
+        ui.actions.get('save').funct = function() {
+            console.log('[ArchiFlow Direct Save] Ctrl+S pressed');
+            saveToArchiFlow();
+            return false; // Don't show dialog
+        };
+    }
+
+    // Override saveAs action  
+    const originalSaveAs = ui.actions.get('saveAs');
+    if (originalSaveAs) {
+        ui.actions.get('saveAs').funct = function() {
+            console.log('[ArchiFlow Direct Save] Save As pressed');
+            saveToArchiFlow();
+            return false; // Don't show dialog
+        };
+    }
+
+    // Listen for diagram load requests
+    window.addEventListener('message', function(evt) {
+        if (evt.data && evt.data.action === 'load' && evt.data.xml) {
+            console.log('[ArchiFlow Direct Save] Loading diagram');
+            try {
+                const doc = mxUtils.parseXml(evt.data.xml);
+                ui.editor.setGraphXml(doc.documentElement);
+                ui.editor.setModified(false);
+                if (evt.data.title) {
+                    ui.editor.filename = evt.data.title;
+                }
+            } catch (error) {
+                console.error('[ArchiFlow Direct Save] Load error:', error);
+            }
+        }
+    });
+
+    console.log('[ArchiFlow Direct Save] Ready - Ctrl+S saves to ArchiFlow');
 });

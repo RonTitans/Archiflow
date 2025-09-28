@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test ArchiFlow Storage Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        iframe {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ccc;
+        }
+        .info {
+            background: #e8f4f8;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h1>ArchiFlow Storage Fix Test</h1>
+        <p><strong>Instructions:</strong></p>
+        <ol>
+            <li>Wait for Draw.io to load below</li>
+            <li>Press <strong>Ctrl+S</strong> or use File → Save</li>
+            <li>Look for "🗄️ ArchiFlow Database" in the storage dropdown</li>
+            <li>Select it and click Save</li>
+            <li>Check the console log below for messages</li>
+        </ol>
+    </div>
+
+    <iframe id="drawio" src="http://localhost:8081/?splash=0&plugins=1&p=plugins/archiflow-storage-fix.js"></iframe>
+
+    <div class="log" id="log">
+        <div>Waiting for Draw.io to load...</div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+
+        function addLog(msg, color = '#0f0') {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.style.color = color;
+            div.textContent = `[${time}] ${msg}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Listen for messages from Draw.io
+        window.addEventListener('message', function(evt) {
+            if (evt.origin !== 'http://localhost:8081') return;
+
+            const data = evt.data;
+
+            if (data.event === 'init') {
+                addLog('✓ Draw.io initialized', '#0ff');
+            } else if (data.event === 'save') {
+                addLog('🎉 SAVE EVENT RECEIVED!', '#ff0');
+                addLog(`Title: ${data.title}`, '#ff0');
+                addLog(`XML Length: ${data.xml ? data.xml.length : 0}`, '#ff0');
+                addLog('✅ Would save to ArchiFlow Database here', '#0f0');
+            } else {
+                addLog('Message: ' + JSON.stringify(data).substring(0, 100));
+            }
+        });
+
+        // Check iframe load
+        document.getElementById('drawio').onload = function() {
+            addLog('✓ Draw.io iframe loaded', '#0ff');
+        };
+
+        addLog('Page ready, loading Draw.io...');
+    </script>
+</body>
+</html>

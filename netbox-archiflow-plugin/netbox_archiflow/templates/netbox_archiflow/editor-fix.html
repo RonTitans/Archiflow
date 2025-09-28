@@ -1,0 +1,91 @@
+<!-- Extract the openDiagram function fix -->
+<script>
+function openDiagram(diagramId) {
+    currentDiagram = diagramId;
+    const diagram = diagrams.find(d => d.id === diagramId);
+
+    console.log('Opening diagram:', diagram);
+    console.log('Diagram data length:', diagram?.diagram_data?.length || 0);
+
+    const iframe = document.getElementById('archiflow-frame');
+
+    // Get the diagram XML or create empty
+    let diagramXml = getEmptyDiagram();
+
+    if (diagram && diagram.diagram_data) {
+        // Check if the data is valid
+        if (diagram.diagram_data.length > 100 && diagram.diagram_data.includes('mxGraphModel')) {
+            diagramXml = diagram.diagram_data;
+            console.log('✅ Using saved diagram data');
+        } else {
+            console.log('⚠️ Diagram data seems invalid, using empty diagram');
+        }
+    } else {
+        console.log('📝 No diagram data found, creating new');
+    }
+
+    // Store the XML to send when plugin is ready
+    window.pendingDiagramLoad = {
+        xml: diagramXml,
+        title: diagram ? diagram.title : 'Untitled'
+    };
+
+    // Force reload iframe
+    iframe.src = 'about:blank';
+
+    setTimeout(() => {
+        // Load Draw.io with both plugins
+        const drawioUrl = `http://localhost:8081/?splash=0&plugins=1&p=plugins/archiflow-complete.js,plugins/archiflow-load-fix.js`;
+        iframe.src = drawioUrl;
+
+        console.log('🔄 Loading Draw.io with plugins...');
+    }, 100);
+
+    // Update info
+    if (diagram) {
+        document.getElementById('current-diagram-info').textContent =
+            `Currently editing: ${diagram.version} - ${diagram.title} ${diagram.is_live ? '(LIVE)' : ''}`;
+    }
+
+    // Reset save status
+    updateSaveStatus('saved');
+    isDirty = false;
+}
+
+// Listen for plugin ready signal
+window.addEventListener('message', function(evt) {
+    if (evt.origin !== 'http://localhost:8081') return;
+
+    const data = evt.data;
+
+    // When plugin signals it's ready, send the pending diagram
+    if (data.event === 'plugin_ready' && window.pendingDiagramLoad) {
+        console.log('🚀 Plugin ready, sending diagram...');
+
+        const iframe = document.getElementById('archiflow-frame');
+
+        setTimeout(() => {
+            // Send the diagram data
+            iframe.contentWindow.postMessage({
+                action: 'load',
+                xml: window.pendingDiagramLoad.xml,
+                title: window.pendingDiagramLoad.title
+            }, '*');
+
+            console.log('📤 Sent diagram to Draw.io');
+
+            // Clear pending load
+            window.pendingDiagramLoad = null;
+        }, 500);
+    }
+
+    // Handle load confirmation
+    if (data.event === 'diagram_loaded') {
+        if (data.success) {
+            console.log('✅ Diagram loaded successfully in Draw.io');
+        } else {
+            console.error('❌ Failed to load diagram:', data.error);
+        }
+    }
+});
+</script>

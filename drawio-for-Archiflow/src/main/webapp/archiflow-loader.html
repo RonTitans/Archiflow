@@ -45,13 +45,29 @@
     <script>
         console.log('[ArchiFlow Loader] Starting...');
         
+        // Get URL parameters to pass through
+        const urlParams = new URLSearchParams(window.location.search);
+        const timestamp = urlParams.get('t') || Date.now();
+        const randomId = urlParams.get('rid') || Math.random().toString(36).substring(7);
+        const dataUri = urlParams.get('data');
+
         // First, load Draw.io WITHOUT any plugin parameters to avoid double loading
         const iframe = document.getElementById('drawio');
         // Use relative path if loaded from same origin, otherwise use full URL
         const currentHost = window.location.hostname;
-        const drawioUrl = (currentHost === 'localhost' || currentHost === '127.0.0.1') 
-            ? '/index.html' 
+        const baseUrl = (currentHost === 'localhost' || currentHost === '127.0.0.1')
+            ? '/index.html'
             : 'http://localhost:8081/index.html';
+
+        // Add parameters to prevent Draw.io from auto-loading any stored content
+        // If we have a data URI, use it to force Draw.io to start with that data
+        let drawioUrl = `${baseUrl}?t=${timestamp}&rid=${randomId}&local=0&draft=0&rough=0&splash=0`;
+        if (dataUri) {
+            drawioUrl += `&data=${dataUri}`;
+            console.log('[ArchiFlow Loader] Loading Draw.io with provided data URI');
+        }
+
+        console.log('[ArchiFlow Loader] Loading Draw.io with cache-bust and no-storage:', drawioUrl);
         iframe.src = drawioUrl;
         
         let attempts = 0;

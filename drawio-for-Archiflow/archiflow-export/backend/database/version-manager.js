@@ -190,13 +190,20 @@ export const VersionManager = {
     // Update diagram data
     async updateDiagram(diagramId, diagramData) {
         try {
+            console.log('📝 updateDiagram called with:');
+            console.log('  - diagramId:', diagramId);
+            console.log('  - diagramData type:', typeof diagramData);
+            console.log('  - diagramData length:', diagramData ? diagramData.length : 'null/undefined');
+            console.log('  - diagramData preview:', diagramData ? diagramData.substring(0, 100) : 'null/undefined');
+
             const result = await pool.query(
-                'UPDATE archiflow.diagrams SET diagram_data = $1 WHERE id = $2 RETURNING id',
+                'UPDATE archiflow.diagrams SET diagram_data = $1 WHERE id = $2 RETURNING id, diagram_data',
                 [diagramData, diagramId]
             );
 
             if (result.rows.length > 0) {
                 console.log('✅ Diagram updated successfully:', diagramId);
+                console.log('  - Saved data length:', result.rows[0].diagram_data ? result.rows[0].diagram_data.length : 'null');
                 return { success: true, message: 'Diagram updated' };
             } else {
                 return { success: false, message: 'Diagram not found' };

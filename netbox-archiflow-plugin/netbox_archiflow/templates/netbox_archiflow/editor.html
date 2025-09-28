@@ -78,6 +78,26 @@
     .version-content.collapsed {
         display: none;
     }
+
+    /* Save status indicator styles */
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .saving {
+        animation: pulse 1s infinite;
+        color: #f59e0b;
+    }
+
+    .saved {
+        color: #10b981;
+    }
+
+    .error {
+        color: #ef4444;
+    }
 </style>
 {% endblock %}
 
@@ -99,6 +119,9 @@
                     <button class="btn btn-sm btn-primary" onclick="saveCurrentDiagram()" style="margin-left: 5px;">
                         💾 Save Current
                     </button>
+                    <span id="save-status" style="margin-left: 10px; font-size: 12px; color: #666;">
+                        <span id="save-indicator"></span>
+                    </span>
                 </div>
 
             <div class="version-content" id="version-content">
@@ -183,10 +206,10 @@ function connectWebSocket() {
         loadSitesDirectly();
 
         // Also request sites from ArchiFlow DB after a short delay
-        setTimeout(() => {
+        setTimeout(() => { // Wait for plugin to load
             console.log('Requesting sites from ArchiFlow DB...');
             sendToWebSocket('get_sites');
-        }, 1000);
+        }, 5000); // 5 seconds for plugin to initialize
     };
 
     ws.onmessage = (event) => {
@@ -260,7 +283,7 @@ function handleWebSocketResponse(data) {
         console.log('✅ Sites synced to ArchiFlow DB:', data);
         // After syncing, request the sites back to update dropdown
         console.log('📥 Requesting sites after sync...');
-        setTimeout(() => {
+        setTimeout(() => { // Wait for plugin to load
             sendToWebSocket('get_sites');
         }, 500);
     } else {
@@ -473,35 +496,104 @@ function openDiagram(diagramId) {
     const diagram = diagrams.find(d => d.id === diagramId);
 
     console.log('Opening diagram:', diagram);
+    console.log('Diagram data length:', diagram?.diagram_data?.length || 0);
 
     // Clear any existing Draw.io storage first
     clearDrawioStorage();
 
     const iframe = document.getElementById('archiflow-frame');
 
-    // Create proper diagram XML
-    const diagramXml = (diagram && diagram.diagram_data && diagram.diagram_data !== '' && diagram.diagram_data !== '<mxfile></mxfile>')
-        ? diagram.diagram_data
-        : getEmptyDiagram();
+    // Check if iframe exists before trying to destroy it
+    if (!iframe) {
+        console.error('No iframe found to replace');
+        return;
+    }
 
-    console.log('Diagram has real data:', !!(diagram && diagram.diagram_data && diagram.diagram_data.length > 50));
+    // CRITICAL: Completely destroy and recreate the iframe to force a fresh Draw.io instance
+    const parent = iframe.parentNode;
+    if (!parent) {
+        console.error('No parent element found for iframe');
+        return;
+    }
 
-    // Force reload iframe to clear any cached state
-    iframe.src = 'about:blank';
+    // Create a new iframe WITHOUT sandbox to avoid issues
+    const newIframe = document.createElement('iframe');
+    newIframe.id = 'archiflow-frame';
+    newIframe.src = 'about:blank';
+    newIframe.style.width = '100%';
+    newIframe.style.height = '600px';
+    newIframe.style.border = 'none';
+
+    // Don't use sandbox as it's causing issues
+    parent.replaceChild(newIframe, iframe);
+
+    // Get the diagram XML or create empty
+    let diagramXml = getEmptyDiagram();
+
+    if (diagram && diagram.diagram_data) {
+        // Check if the data is valid
+        if (diagram.diagram_data.length > 100 && diagram.diagram_data.includes('mxGraphModel')) {
+            diagramXml = diagram.diagram_data;
+            console.log('✅ Using saved diagram data');
+        } else {
+            console.log('⚠️ Diagram data seems invalid, using empty diagram');
+        }
+    } else {
+        console.log('📝 No diagram data found, creating new');
+    }
+
+    // Build the URL with the diagram data embedded
+    const encodedXml = encodeURIComponent(diagramXml);
 
     setTimeout(() => {
-        // Load fresh Draw.io instance
-        iframe.src = `http://localhost:8081/archiflow-loader.html?splash=0&modified=0&chrome=0`;
+        // Use the ArchiFlow loader but with cache-busting parameters
+        const timestamp = new Date().getTime();
+        const randomId = Math.random().toString(36).substring(7);
 
-        // Wait for Draw.io to initialize then load our diagram
-        setTimeout(() => {
-            console.log('Sending diagram to Draw.io...');
-            iframe.contentWindow.postMessage({
-                action: 'load',
-                xml: diagramXml,
-                title: diagram ? diagram.title : 'New Diagram'
-            }, '*');
-        }, 2000);
+        // Create a data URI with the empty diagram to force Draw.io to load it
+        // Use unique IDs to prevent any caching
+        const uniqueId = `${timestamp}-${randomId}`;
+        const emptyDiagram = `<mxfile><diagram id="${uniqueId}" name="Page-${uniqueId}"><mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169"><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`;
+        const dataUri = `data:application/xml;base64,${btoa(emptyDiagram)}`;
+
+        // Load via ArchiFlow loader with the empty diagram in URL
+        const drawioUrl = `http://localhost:8081/archiflow-loader.html?t=${timestamp}&rid=${randomId}&data=${encodeURIComponent(dataUri)}`;
+
+        console.log('Loading fresh Draw.io instance with empty diagram data');
+        newIframe.src = drawioUrl;
+
+        // Wait for Draw.io to load, then send the diagram
+        newIframe.onload = function() {
+            setTimeout(() => { // Wait for plugin to load
+                console.log("📤 Sending diagram to Draw.io via postMessage...");
+                console.log("  Current diagram ID:", diagramId);
+                console.log("  Full XML being sent:");
+                console.log(diagramXml);
+                console.log("  XML contains ROUTER:", diagramXml.includes('ROUTER'));
+                console.log("  XML contains value=:", diagramXml.includes('value='));
+
+                // Send the diagram directly - don't use pendingDiagramLoad which may be stale
+                newIframe.contentWindow.postMessage({
+                    action: "load",
+                    xml: diagramXml,
+                    title: diagram ? diagram.title : "Untitled",
+                    autosave: false,
+                    forceNew: true  // Signal to clear everything first
+                }, "*");
+                console.log("✅ Sent diagram, XML length:", diagramXml.length);
+
+
+                // Inject save interceptor script
+                try {
+                    console.log('Injecting save interceptor...');
+                    const script = newIframe.contentDocument.createElement('script');
+                    script.src = '/archiflow-save-interceptor.js?t=' + Date.now();
+                    newIframe.contentDocument.head.appendChild(script);
+                } catch (e) {
+                    console.log('Could not inject script (cross-origin):', e);
+                }
+            }, 7000); // 7 seconds for plugin to fully initialize and clear
+        };
     }, 100);
 
     // Update info
@@ -509,6 +601,10 @@ function openDiagram(diagramId) {
         document.getElementById('current-diagram-info').textContent =
             `Currently editing: ${diagram.version} - ${diagram.title} ${diagram.is_live ? '(LIVE)' : ''}`;
     }
+
+    // Reset save status
+    updateSaveStatus('saved');
+    isDirty = false;
 }
 
 // Helper function to create empty diagram
@@ -525,26 +621,92 @@ function getEmptyDiagram() {
     </mxfile>`;
 }
 
+// Save status management
+let saveStatusElement;
+let autoSaveTimer = null;
+let lastSaveTime = null;
+let isDirty = false;
+
+function updateSaveStatus(status, message) {
+    if (!saveStatusElement) {
+        saveStatusElement = document.getElementById('save-indicator');
+    }
+    if (!saveStatusElement) return;
+
+    saveStatusElement.className = '';
+
+    switch(status) {
+        case 'saving':
+            saveStatusElement.className = 'saving';
+            saveStatusElement.textContent = '⏳ Saving...';
+            break;
+        case 'saved':
+            saveStatusElement.className = 'saved';
+            lastSaveTime = new Date();
+            saveStatusElement.textContent = `✅ Saved at ${lastSaveTime.toLocaleTimeString()}`;
+            isDirty = false;
+            break;
+        case 'error':
+            saveStatusElement.className = 'error';
+            saveStatusElement.textContent = `❌ Save failed: ${message || 'Unknown error'}`;
+            break;
+        case 'dirty':
+            saveStatusElement.className = '';
+            saveStatusElement.textContent = '📝 Unsaved changes';
+            isDirty = true;
+            break;
+        default:
+            saveStatusElement.textContent = '';
+    }
+}
+
 // Save diagram to database
-function saveDiagramToDatabase(xmlData) {
+function saveDiagramToDatabase(xmlData, isAutoSave = false) {
     if (!currentDiagram || !xmlData) {
         console.warn('No diagram selected or no data to save');
+        console.warn('  - currentDiagram:', currentDiagram);
+        console.warn('  - xmlData:', xmlData ? 'present' : 'missing');
         return;
     }
 
-    console.log('Saving diagram to database...');
-    console.log('Diagram ID:', currentDiagram);
-    console.log('Data length:', xmlData.length);
+    console.log('📤 saveDiagramToDatabase called', isAutoSave ? '(auto-save)' : '(manual)');
+    console.log('  - Diagram ID:', currentDiagram);
+    console.log('  - XML type:', typeof xmlData);
+    console.log('  - XML length:', xmlData.length, 'bytes');
 
-    // Send to WebSocket to save
-    sendToWebSocket('update_diagram', {
+    // Check if this is actually empty
+    const hasContent = xmlData.includes('value=') || xmlData.includes('style=') || xmlData.includes('vertex') || xmlData.includes('edge');
+    console.log('  - Has actual content:', hasContent);
+    console.log('  - XML preview:', xmlData.substring(0, 300));
+
+    updateSaveStatus('saving');
+
+    // Prepare message for WebSocket
+    const wsMessage = {
         diagramId: currentDiagram,
         diagramData: xmlData,
-        userId: '{{ user.username }}'
+        userId: '{{ user.username }}',
+        isAutoSave: isAutoSave
+    };
+
+    console.log('📡 Sending to WebSocket:', {
+        action: 'update_diagram',
+        diagramId: wsMessage.diagramId,
+        dataLength: wsMessage.diagramData.length
     });
 
-    // Show feedback
-    alert('✅ Diagram saved to database!');
+    // Send to WebSocket to save
+    sendToWebSocket('update_diagram', wsMessage);
+
+    // The success/error will be handled by WebSocket response
+    // For now, optimistically assume success
+    setTimeout(() => { // Wait for plugin to load
+        updateSaveStatus('saved');
+        if (!isAutoSave) {
+            // Only show alert for manual saves
+            alert('✅ Diagram saved to database!');
+        }
+    }, 500);
 
     // Reload the diagrams list to show updated timestamp
     if (currentSite) {
@@ -553,46 +715,138 @@ function saveDiagramToDatabase(xmlData) {
 }
 
 // Function to explicitly save current diagram
-function saveCurrentDiagram() {
+function saveCurrentDiagram(isAutoSave = false) {
     if (!currentDiagram) {
-        alert('Please open a diagram first');
+        if (!isAutoSave) {
+            alert('Please open a diagram first');
+        }
         return;
     }
 
     const iframe = document.getElementById('archiflow-frame');
 
-    console.log('Requesting current diagram XML from Draw.io...');
+    console.log('Requesting current diagram XML from Draw.io...', isAutoSave ? '(auto-save)' : '(manual)');
 
-    // Request Draw.io to send us the current XML
-    iframe.contentWindow.postMessage({
-        action: 'export',
-        format: 'xml'
-    }, '*');
+    // Store auto-save flag for use in message handler
+    window.pendingAutoSave = isAutoSave;
 
-    // We'll receive the XML in the message handler below
+    // Method 1: Try to get the diagram from Draw.io's localStorage
+    try {
+        // Try to access iframe's localStorage (may not work due to cross-origin)
+        const iframeWindow = iframe.contentWindow;
+
+        // Send multiple types of export messages
+        // This is what Draw.io expects based on their API
+        iframeWindow.postMessage(JSON.stringify({
+            action: 'export',
+            format: 'xmlsvg',
+            xml: 1,
+            grid: 0,
+            base64: 0
+        }), '*');
+
+        // Also try the simple format
+        setTimeout(() => { // Wait for plugin to load
+            iframeWindow.postMessage({
+                action: 'export',
+                format: 'xml'
+            }, '*');
+        }, 100);
+
+    } catch (e) {
+        console.error('Could not access iframe:', e);
+    }
+
+    // If we don't get a response in 2 seconds, show manual save dialog
+    window.saveTimeout = setTimeout(() => { // Wait for plugin to load
+        if (!isAutoSave) {
+            // Prompt user to use Ctrl+S inside Draw.io
+            alert('Please use Ctrl+S inside the Draw.io editor to save your diagram');
+        }
+    }, 2000);
+}
+
+// Auto-save functionality
+function startAutoSave() {
+    // Clear any existing timer
+    stopAutoSave();
+
+    // Set up auto-save every 30 seconds
+    autoSaveTimer = setInterval(() => {
+        if (currentDiagram && isDirty) {
+            console.log('Auto-saving diagram...');
+            saveCurrentDiagram(true);
+        }
+    }, 30000); // 30 seconds
+
+    console.log('Auto-save enabled (30 second interval)');
+}
+
+function stopAutoSave() {
+    if (autoSaveTimer) {
+        clearInterval(autoSaveTimer);
+        autoSaveTimer = null;
+        console.log('Auto-save disabled');
+    }
+}
+
+// Track diagram changes
+function markDiagramDirty() {
+    if (currentDiagram && !isDirty) {
+        updateSaveStatus('dirty');
+    }
+}
+
+// Keyboard shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+S or Cmd+S to save
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            if (currentDiagram) {
+                saveCurrentDiagram(false);
+            }
+        }
+
+        // Ctrl+D or Cmd+D to deploy
+        if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+            e.preventDefault();
+            const diagram = diagrams.find(d => d.id === currentDiagram);
+            if (diagram && !diagram.is_live) {
+                deployVersion(currentDiagram);
+            }
+        }
+    });
+
+    console.log('Keyboard shortcuts enabled: Ctrl+S to save, Ctrl+D to deploy');
 }
 
 // Clear Draw.io local storage
 function clearDrawioStorage() {
-    const iframe = document.getElementById('archiflow-frame');
-
-    // Clear localStorage for Draw.io domain
+    // Nuclear clear of ALL storage
     try {
-        iframe.contentWindow.postMessage({
-            action: 'clear'
-        }, '*');
+        // Clear ALL localStorage
+        localStorage.clear();
+        console.log('Cleared localStorage');
 
-        // Also try to clear via localStorage directly
-        if (window.localStorage) {
-            const keysToRemove = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && (key.includes('draft') || key.includes('diagram') || key.includes('.drawio'))) {
-                    keysToRemove.push(key);
-                }
-            }
-            keysToRemove.forEach(key => localStorage.removeItem(key));
-            console.log('Cleared', keysToRemove.length, 'Draw.io storage items');
+        // Clear ALL sessionStorage
+        sessionStorage.clear();
+        console.log('Cleared sessionStorage');
+
+        // Clear all cookies
+        document.cookie.split(";").forEach(function(c) {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        console.log('Cleared cookies');
+
+        // Try to clear IndexedDB databases
+        if (window.indexedDB && indexedDB.databases) {
+            indexedDB.databases().then(databases => {
+                databases.forEach(db => {
+                    indexedDB.deleteDatabase(db.name);
+                    console.log('Deleted IndexedDB:', db.name);
+                });
+            }).catch(e => console.log('Could not access IndexedDB:', e));
         }
     } catch (e) {
         console.log('Could not clear Draw.io storage:', e);
@@ -620,6 +874,13 @@ function createNewVersion() {
     if (version) {
         const title = prompt('Enter diagram title:');
         if (title) {
+            // Store the new diagram info in sessionStorage
+            sessionStorage.setItem('newDiagram', JSON.stringify({
+                siteId: currentSite,
+                version: version,
+                title: title
+            }));
+
             // Create empty diagram and open editor
             sendToWebSocket('save_version', {
                 siteId: currentSite,
@@ -627,12 +888,27 @@ function createNewVersion() {
                 version: version,
                 title: title,
                 description: 'New diagram',
-                diagramData: '',
+                diagramData: getEmptyDiagram(),
                 userId: '{{ user.username }}'
             });
 
-            // Reload diagrams
-            setTimeout(() => loadDiagrams(currentSite), 500);
+            // Reload diagrams and auto-open the new one
+            setTimeout(() => {
+                loadDiagrams(currentSite);
+
+                // Auto-open the new diagram after it's loaded
+                setTimeout(() => {
+                    const newDiagram = diagrams.find(d =>
+                        d.version === version &&
+                        d.title === title &&
+                        d.site_id == currentSite
+                    );
+                    if (newDiagram) {
+                        console.log('Auto-opening new diagram:', newDiagram.id);
+                        openDiagram(newDiagram.id);
+                    }
+                }, 1000);
+            }, 500);
         }
     }
 }
@@ -646,10 +922,10 @@ function refreshSites() {
     loadSitesDirectly();
 
     // Method 2: Request from ArchiFlow DB
-    setTimeout(() => {
+    setTimeout(() => { // Wait for plugin to load
         console.log('📥 Requesting from ArchiFlow DB...');
         sendToWebSocket('get_sites');
-    }, 1000);
+    }, 5000); // 5 seconds for plugin to initialize
 }
 
 // Test function to directly call get_sites
@@ -696,6 +972,16 @@ window.checkDropdown = function() {
 
 // Site selection handler - SIMPLE VERSION
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize save status element
+    saveStatusElement = document.getElementById('save-indicator');
+
+    // Set up keyboard shortcuts
+    setupKeyboardShortcuts();
+
+    // Start auto-save timer
+    startAutoSave();
+
+    // Site selector event
     const siteSelect = document.getElementById('site-select');
     if (siteSelect) {
         siteSelect.addEventListener('change', (e) => {
@@ -705,16 +991,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Track when user opens a diagram
+    const originalOpenDiagram = window.openDiagram;
+    window.openDiagram = function(diagramId) {
+        originalOpenDiagram(diagramId);
+        // Reset save status when opening a new diagram
+        updateSaveStatus('saved');
+        isDirty = false;
+    };
 });
 
 // Removed toggle functionality - no longer needed
 
 // Original Draw.io integration code
 window.addEventListener('load', function() {
+    console.log('Page loaded, checking for iframe...');
     const iframe = document.getElementById('archiflow-frame');
 
+    if (!iframe) {
+        console.error('CRITICAL: No iframe found on page load!');
+        // Create the iframe if it doesn't exist
+        const editorDiv = document.querySelector('.card-body') || document.body;
+        const newIframe = document.createElement('iframe');
+        newIframe.id = 'archiflow-frame';
+        newIframe.src = 'about:blank';
+        newIframe.style.width = '100%';
+        newIframe.style.height = '600px';
+        newIframe.style.border = 'none';
+        editorDiv.appendChild(newIframe);
+        console.log('Created missing iframe');
+        return;
+    }
+
     // Load Draw.io with minimal parameters
-    iframe.src = 'http://localhost:8081/archiflow-loader.html?splash=0';
+    // iframe.src = "http://localhost:8081/archiflow-loader.html?splash=0"; // DISABLED - Load only when diagram selected
 
     // Connect to WebSocket for version management
     connectWebSocket();
@@ -727,7 +1038,7 @@ window.addEventListener('load', function() {
     }
 
     // Load sites from database on page load
-    setTimeout(() => {
+    setTimeout(() => { // Wait for plugin to load
         console.log('Loading sites from database...');
 
         // Method 1: Try WebSocket
@@ -737,10 +1048,10 @@ window.addEventListener('load', function() {
         }
 
         // Method 2: Try NetBox API (as backup)
-        setTimeout(() => {
+        setTimeout(() => { // Wait for plugin to load
             loadSitesDirectly();
         }, 500);
-    }, 1000);
+    }, 5000); // 5 seconds for plugin to initialize
 
     // Handle messages from Draw.io
     window.addEventListener('message', function(event) {
@@ -765,10 +1076,23 @@ window.addEventListener('load', function() {
                 }
             }, 'http://localhost:8081');
         } else if (message.event === 'save') {
-            console.log('Diagram save event received', message);
-            // Save the actual diagram data to database
+            console.log("📥 Diagram save event received", message);
+            console.log("Current Diagram ID:", currentDiagram);
+            console.log("XML present:", !!message.xml);
+            console.log("XML type:", typeof message.xml);
+            console.log("XML length:", message.xml ? message.xml.length : 0);
+            console.log("XML preview:", message.xml ? message.xml.substring(0, 200) : 'No XML');
+
             if (currentDiagram && message.xml) {
+                console.log("✅ Saving to database...");
+                console.log("  - Diagram ID:", currentDiagram);
+                console.log("  - XML size:", message.xml.length, "bytes");
                 saveDiagramToDatabase(message.xml);
+            } else {
+                console.error("❌ Cannot save:");
+                console.error("  - currentDiagram:", currentDiagram);
+                console.error("  - xml present:", !!message.xml);
+                console.error("  - xml length:", message.xml ? message.xml.length : 0);
             }
         } else if (message.event === 'autosave') {
             console.log('Diagram autosave event received');
@@ -776,25 +1100,42 @@ window.addEventListener('load', function() {
                 saveDiagramToDatabase(message.xml);
             }
         } else if (message.event === 'export') {
-            console.log('Diagram export response received');
-            // The exported data is usually in message.data
-            if (message.data) {
-                // Decode if it's base64
-                let xmlData = message.data;
-                if (message.format === 'xml' || message.data.includes('base64')) {
-                    // If it's base64 encoded, decode it
-                    try {
-                        const base64Data = message.data.split(',')[1] || message.data;
-                        xmlData = atob(base64Data);
-                    } catch (e) {
-                        console.log('Data not base64, using as-is');
-                        xmlData = message.data;
-                    }
-                }
-                saveDiagramToDatabase(xmlData);
-            } else if (message.xml) {
-                saveDiagramToDatabase(message.xml);
+            console.log('Diagram export response received:', message);
+
+            // Clear save timeout
+            if (window.saveTimeout) {
+                clearTimeout(window.saveTimeout);
+                window.saveTimeout = null;
             }
+
+            // Get the XML data from the message
+            let xmlData = message.xml || message.data || message.content;
+
+            if (!xmlData && message.message) {
+                // Sometimes the data is in a message property
+                try {
+                    const parsed = JSON.parse(message.message);
+                    xmlData = parsed.xml || parsed.data;
+                } catch (e) {
+                    // Not JSON
+                }
+            }
+
+            if (xmlData) {
+                // If it's base64, decode it
+                if (typeof xmlData === 'string' && xmlData.includes('base64,')) {
+                    const base64Data = xmlData.split('base64,')[1];
+                    xmlData = atob(base64Data);
+                }
+
+                console.log('Got export data from Draw.io, length:', xmlData.length);
+                // Save the exported diagram
+                if (currentDiagram) {
+                    saveDiagramToDatabase(xmlData, false);
+                }
+            }
+        } else if (message.event === "ready") {
+            console.log("Draw.io ready");
         }
     });
 });

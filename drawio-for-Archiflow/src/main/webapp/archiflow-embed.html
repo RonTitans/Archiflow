@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ArchiFlow Diagram Editor</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        iframe {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Use Draw.io in embed mode which disables local storage -->
+    <iframe id="drawio"
+            src="index.html?embed=1&spin=1&proto=json&configure=1&noSaveBtn=1&noExitBtn=1&saveAndExit=0&noSaveBtn=1&libraries=1&splash=0">
+    </iframe>
+
+    <script>
+        console.log('[ArchiFlow Embed] Starting embedded Draw.io...');
+
+        const iframe = document.getElementById('drawio');
+        let currentXml = null;
+        let parentOrigin = '*'; // Accept messages from any origin for now
+
+        // Listen for messages from Draw.io
+        window.addEventListener('message', function(evt) {
+            console.log('[ArchiFlow Embed] Received message:', evt.data);
+
+            const msg = typeof evt.data === 'string' ? JSON.parse(evt.data) : evt.data;
+
+            if (msg.event === 'init') {
+                console.log('[ArchiFlow Embed] Draw.io initialized');
+
+                // Configure Draw.io
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    action: 'configure',
+                    config: {
+                        defaultLibraries: 'general;network;arrows2',
+                        enabledLibraries: ['general', 'network', 'arrows2'],
+                        defaultEdgeLength: 100
+                    }
+                }), '*');
+
+                // If we have diagram data waiting, load it
+                if (currentXml) {
+                    loadDiagram(currentXml);
+                }
+
+                // Notify parent that we're ready
+                if (window.parent !== window) {
+                    window.parent.postMessage({ event: 'ready' }, '*');
+                }
+            }
+            else if (msg.event === 'save') {
+                console.log('[ArchiFlow Embed] Save event from Draw.io');
+                currentXml = msg.xml;
+
+                // Forward to parent window
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        event: 'save',
+                        xml: msg.xml
+                    }, '*');
+                }
+            }
+            else if (msg.event === 'export') {
+                console.log('[ArchiFlow Embed] Export response:', msg);
+
+                // Forward export data to parent
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        event: 'export',
+                        data: msg.data,
+                        format: msg.format,
+                        xml: msg.xml || msg.data
+                    }, '*');
+                }
+            }
+            else if (msg.event === 'autosave') {
+                console.log('[ArchiFlow Embed] Autosave from Draw.io');
+                currentXml = msg.xml;
+
+                // Forward to parent
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        event: 'autosave',
+                        xml: msg.xml
+                    }, '*');
+                }
+            }
+        });
+
+        // Listen for messages from parent (NetBox)
+        window.addEventListener('message', function(evt) {
+            // Skip messages from Draw.io itself
+            if (evt.source === iframe.contentWindow) return;
+
+            console.log('[ArchiFlow Embed] Message from parent:', evt.data);
+
+            const msg = typeof evt.data === 'string' ?
+                (evt.data.startsWith('{') ? JSON.parse(evt.data) : evt.data) :
+                evt.data;
+
+            if (msg.action === 'load' && msg.xml) {
+                console.log('[ArchiFlow Embed] Loading diagram from parent');
+                loadDiagram(msg.xml);
+            }
+            else if (msg.action === 'export') {
+                console.log('[ArchiFlow Embed] Export request from parent');
+                // Request export from Draw.io
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    action: 'export',
+                    format: msg.format || 'xmlsvg',
+                    xml: 1,
+                    base64: 1
+                }), '*');
+            }
+            else if (msg.action === 'save') {
+                console.log('[ArchiFlow Embed] Save request from parent');
+                // Trigger save in Draw.io
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    action: 'export',
+                    format: 'xmlsvg',
+                    xml: 1,
+                    base64: 1
+                }), '*');
+            }
+        });
+
+        function loadDiagram(xml) {
+            console.log('[ArchiFlow Embed] Loading diagram, length:', xml ? xml.length : 0);
+
+            if (!xml || xml.length < 50) {
+                console.warn('[ArchiFlow Embed] Invalid or empty XML, skipping load');
+                return;
+            }
+
+            currentXml = xml;
+
+            // Send load message to Draw.io
+            iframe.contentWindow.postMessage(JSON.stringify({
+                action: 'load',
+                autosave: 1,
+                xml: xml
+            }), '*');
+        }
+
+        // Handle URL parameters if diagram data is passed
+        const urlParams = new URLSearchParams(window.location.search);
+        const diagramData = urlParams.get('data');
+        if (diagramData) {
+            try {
+                currentXml = decodeURIComponent(diagramData);
+                console.log('[ArchiFlow Embed] Found diagram data in URL');
+            } catch (e) {
+                console.error('[ArchiFlow Embed] Failed to decode URL data:', e);
+            }
+        }
+    </script>
+</body>
+</html>

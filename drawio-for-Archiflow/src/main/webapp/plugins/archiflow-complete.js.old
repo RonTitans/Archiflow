@@ -2171,174 +2171,140 @@ Draw.loadPlugin(function(ui) {
     }, 1000);
     
     console.log('[ArchiFlow] Plugin ready! Check Extras menu for ArchiFlow options.');
-    // ArchiFlow Direct Save - Integrated into main plugin
-    console.log('[ArchiFlow Direct Save] Initializing...');
+});
+// ArchiFlow Storage Provider - Adds ArchiFlow Database as a storage option
+Draw.loadPlugin(function(ui) {
+    console.log('[ArchiFlow Storage] Initializing custom storage provider...');
 
-    // Function to save to ArchiFlow database
-    function saveToArchiFlow() {
-        try {
-            // Get the diagram XML
-            const graphXml = ui.editor.getGraphXml();
-            if (!graphXml) {
-                console.error('[ArchiFlow] No graph XML available');
-                ui.editor.setStatus('Error: No diagram to save');
-                return;
-            }
-
-            const xml = mxUtils.getXml(graphXml);
-            const filename = ui.editor.filename || 'diagram.drawio';
-
-            console.log('[ArchiFlow Direct Save] Preparing to save:');
-            console.log('  - Filename:', filename);
-            console.log('  - XML size:', xml.length, 'bytes');
-            console.log('  - XML preview:', xml.substring(0, 200));
-            console.log('  - Is in iframe:', window.parent !== window);
-
-            // Send to parent (NetBox)
+    // Override the save action to inject ArchiFlow option
+    const originalSave = ui.actions.get('save');
+    const originalSaveAs = ui.actions.get('saveAs');
+    
+    if (originalSave) {
+        const originalSaveFunct = originalSave.funct;
+        ui.actions.get('save').funct = function() {
+            console.log('[ArchiFlow Storage] Save action triggered');
+            
+            // Check if we're in an iframe (embedded in NetBox)
             if (window.parent && window.parent !== window) {
-                const message = {
+                // Quick save to ArchiFlow
+                const xml = mxUtils.getXml(ui.editor.getGraphXml());
+                const title = ui.editor.filename || 'diagram';
+                
+                window.parent.postMessage({
                     event: 'save',
                     action: 'save',
                     xml: xml,
-                    title: filename,
-                    timestamp: new Date().toISOString()
-                };
-
-                console.log('[ArchiFlow] Sending save message to parent:', message);
-                window.parent.postMessage(message, '*');
-
-                // Update UI
-                ui.editor.setModified(false);
-                ui.editor.setStatus('Saved to ArchiFlow');
+                    title: title
+                }, '*');
                 
-                setTimeout(function() {
-                    ui.editor.setStatus('');
-                }, 3000);
-                
-                console.log('[ArchiFlow Direct Save] Save complete');
+                ui.showMessage('Saved to ArchiFlow Database!', 2000);
+                ui.editor.modified = false;
+                ui.editor.setStatus('');
+            } else {
+                // Show save dialog with ArchiFlow option
+                originalSaveFunct.apply(this, arguments);
+                setTimeout(() => injectArchiFlowOption(), 100);
             }
-        } catch (error) {
-            console.error('[ArchiFlow Direct Save] Error:', error);
-            ui.editor.setStatus('Save failed!');
-        }
-    }
-
-    // Override save action
-    const originalSave = ui.actions.get('save');
-    if (originalSave) {
-        ui.actions.get('save').funct = function() {
-            console.log('[ArchiFlow Direct Save] Ctrl+S pressed');
-            saveToArchiFlow();
-            return false; // Don't show dialog
         };
     }
-
-    // Override saveAs action  
-    const originalSaveAs = ui.actions.get('saveAs');
+    
     if (originalSaveAs) {
+        const originalSaveAsFunct = originalSaveAs.funct;
         ui.actions.get('saveAs').funct = function() {
-            console.log('[ArchiFlow Direct Save] Save As pressed');
-            saveToArchiFlow();
-            return false; // Don't show dialog
+            console.log('[ArchiFlow Storage] SaveAs triggered');
+            originalSaveAsFunct.apply(this, arguments);
+            setTimeout(() => injectArchiFlowOption(), 100);
         };
     }
-
-    // Listen for diagram load requests
-    window.addEventListener('message', function(evt) {
-        // Handle both JSON string and object
-        let data = evt.data;
-        if (typeof data === 'string') {
-            try {
-                data = JSON.parse(data);
-            } catch (e) {
-                // Not JSON
-            }
-        }
-
-        if (data && data.action === 'load' && data.xml) {
-            console.log('[ArchiFlow Direct Save] Loading diagram, XML length:', data.xml.length);
-            console.log('[ArchiFlow Direct Save] XML content:', data.xml);
-
-            // Check if this is actually an empty diagram
-            const isEmptyDiagram = !data.xml.includes('value=') &&
-                                   !data.xml.includes('ROUTER') &&
-                                   !data.xml.includes('vertex') &&
-                                   !data.xml.includes('edge');
-
-            console.log('[ArchiFlow Direct Save] Is empty diagram:', isEmptyDiagram);
-
-            try {
-                // NUCLEAR OPTION: Create a completely new editor
-                console.log('[ArchiFlow Direct Save] NUCLEAR CLEAR - Creating fresh editor state');
-
-                // Clear EVERYTHING
-                ui.editor.graph.model.clear();
-                ui.editor.graph.view.clear();
-
-                // Create a brand new empty graph
-                const newModel = new mxGraphModel();
-                const newRoot = new mxCell();
-                newRoot.insert(new mxCell());
-                newModel.setRoot(newRoot);
-
-                // Replace the model
-                ui.editor.graph.model = newModel;
-                ui.editor.graph.view = new mxGraphView(ui.editor.graph);
-
-                // Reset all state
-                ui.editor.filename = null;
-                ui.editor.setModified(false);
-                ui.editor.graph.clearSelection();
-                ui.editor.graph.view.scale = 1;
-                ui.editor.graph.view.translate = new mxPoint(0, 0);
-
-                // Parse and load the new diagram
-                const doc = mxUtils.parseXml(data.xml);
-                const node = doc.documentElement;
-
-                // Use a fresh graph load
-                ui.editor.graph.model.beginUpdate();
-                try {
-                    ui.editor.setGraphXml(node);
-                } finally {
-                    ui.editor.graph.model.endUpdate();
+    
+    // Function to inject ArchiFlow option into save dialogs
+    function injectArchiFlowOption() {
+        console.log('[ArchiFlow Storage] Injecting ArchiFlow option...');
+        
+        const dialogs = document.querySelectorAll('.geDialog');
+        dialogs.forEach(dialog => {
+            const selects = dialog.querySelectorAll('select');
+            selects.forEach(select => {
+                // Check if this is the storage location dropdown
+                if ((select.innerHTML.includes('Google Drive') || 
+                     select.innerHTML.includes('OneDrive') || 
+                     select.innerHTML.includes('Device')) &&
+                    !select.innerHTML.includes('ArchiFlow Database')) {
+                    
+                    console.log('[ArchiFlow Storage] Adding ArchiFlow option to dropdown');
+                    
+                    // Add ArchiFlow option at the top
+                    const option = document.createElement('option');
+                    option.value = 'archiflow';
+                    option.text = '🗄️ ArchiFlow Database';
+                    select.insertBefore(option, select.firstChild);
+                    select.value = 'archiflow';
+                    
+                    // Override the select change handler
+                    const originalOnchange = select.onchange;
+                    select.onchange = function(evt) {
+                        if (this.value === 'archiflow') {
+                            console.log('[ArchiFlow Storage] ArchiFlow selected');
+                            
+                            // Find and override the save button
+                            const saveButtons = dialog.querySelectorAll('button');
+                            saveButtons.forEach(btn => {
+                                if (btn.textContent.includes('Save') || 
+                                    btn.textContent.includes('OK') || 
+                                    btn.textContent.includes('Create')) {
+                                    
+                                    btn.onclick = function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        
+                                        console.log('[ArchiFlow Storage] Saving to ArchiFlow...');
+                                        
+                                        // Get the filename
+                                        const filenameInput = dialog.querySelector('input[type="text"]');
+                                        const filename = filenameInput ? filenameInput.value : 'diagram';
+                                        
+                                        // Get the XML
+                                        const xml = mxUtils.getXml(ui.editor.getGraphXml());
+                                        
+                                        // Send to parent if embedded
+                                        if (window.parent && window.parent !== window) {
+                                            window.parent.postMessage({
+                                                event: 'save',
+                                                action: 'save',
+                                                xml: xml,
+                                                title: filename
+                                            }, '*');
+                                            
+                                            console.log('[ArchiFlow Storage] Sent save message to parent');
+                                        } else {
+                                            // Direct save via ArchiFlow API if available
+                                            if (window.ArchiFlow && window.ArchiFlow.saveDiagram) {
+                                                window.ArchiFlow.saveDiagram(filename, xml);
+                                            }
+                                        }
+                                        
+                                        // Close dialog and show success
+                                        ui.hideDialog();
+                                        ui.showMessage('Saved to ArchiFlow Database!', 2000);
+                                        ui.editor.setStatus('');
+                                        ui.editor.modified = false;
+                                        
+                                        return false;
+                                    };
+                                }
+                            });
+                        } else if (originalOnchange) {
+                            originalOnchange.apply(this, arguments);
+                        }
+                    };
+                    
+                    // Trigger change to set up our handler
+                    select.dispatchEvent(new Event('change'));
                 }
-
-                ui.editor.setModified(false);
-
-                // Update filename
-                if (data.title) {
-                    ui.editor.filename = data.title;
-                }
-
-                // Center and fit the view
-                ui.editor.graph.fit();
-                ui.editor.graph.center();
-
-                console.log('[ArchiFlow Direct Save] Diagram loaded successfully');
-
-                // Send confirmation back
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        event: 'diagram_loaded',
-                        success: true
-                    }, '*');
-                }
-            } catch (error) {
-                console.error('[ArchiFlow Direct Save] Load error:', error);
-
-                // Send error back
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        event: 'diagram_loaded',
-                        success: false,
-                        error: error.message
-                    }, '*');
-                }
-            }
-        }
-    });
-
-    console.log('[ArchiFlow Direct Save] Ready - Ctrl+S saves to ArchiFlow');
-
-}); // End of main Draw.loadPlugin
+            });
+        });
+    }
+    
+    console.log('[ArchiFlow Storage] Storage provider ready!');
+});

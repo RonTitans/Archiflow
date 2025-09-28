@@ -5,14 +5,14 @@
   "main": "backend/index.js",
   "type": "module",
   "scripts": {
-    "start": "node backend/dev-server.js",
-    "start-simple": "node backend/simple-server.js",
-    "start-mcp": "node backend/mcp-server.js",
-    "start-db": "node backend/dev-server-db.js",
-    "serve-plugin": "node frontend/standalone-app/serve-plugin.js",
-    "build": "tsc",
+    "start:websocket": "node backend/websocket-server.js",
+    "start:drawio": "node backend/drawio-server.js",
+    "start": "echo 'Services are managed via Docker. Run: docker-compose up'",
     "test": "node tests/integration/test-ip-management.js",
-    "dev": "node backend/dev-server-db.js"
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:restart": "docker-compose restart"
   },
   "keywords": [
     "network",
@@ -40,17 +40,23 @@
     "features": {
       "ipManagement": true,
       "templates": true,
-      "versioning": false,
-      "alerts": false
+      "versioning": true,
+      "autoSave": true,
+      "deployment": true
     },
     "integration": {
       "drawio": {
-        "method": "plugin",
-        "version": "20.0.0+"
+        "method": "iframe",
+        "version": "20.0.0+",
+        "port": 8081
       },
-      "mcp": {
+      "websocket": {
         "port": 3333,
-        "protocol": "websocket"
+        "protocol": "ws"
+      },
+      "netbox": {
+        "port": 8000,
+        "plugin": "netbox_archiflow"
       }
     }
   }
